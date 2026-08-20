@@ -76,7 +76,7 @@ func newResealCommand() *cobra.Command {
 		Use:   "reseal PATH",
 		Short: "Replace and re-encrypt a Relic's Essence",
 		Long: `Replace the structured Essence of an existing Relic. Resealing
-rotates the SOPS data key and requires the existing recovery passphrase.`,
+rotates the Relic encryption key and requires the existing recovery passphrase.`,
 		Args: cobra.ExactArgs(1),
 		RunE: func(_ *cobra.Command, args []string) error {
 			return runReseal(options, args[0])
@@ -93,7 +93,7 @@ func newInscribeCommand() *cobra.Command {
 		Use:   "inscribe PATH",
 		Short: "Update a Relic's non-secret Inscription",
 		Long: `Update repository-visible metadata defined by the Relic's schema.
-Sphinx uses its online Keychain identity to recompute the SOPS integrity MAC;
+Sphinx uses its online Keychain identity to recompute the Relic integrity check;
 the recovery passphrase is not required.`,
 		Args: cobra.ExactArgs(1),
 		RunE: func(_ *cobra.Command, args []string) error {
@@ -112,7 +112,7 @@ func newInspectCommand() *cobra.Command {
 	command := &cobra.Command{
 		Use:   "inspect PATH",
 		Short: "Show a Relic's schema and non-secret Inscription",
-		Long:  "Verify the SOPS MAC, then show only the schema and non-secret Inscription.",
+		Long:  "Verify encrypted Relic integrity, then show only the schema and non-secret Inscription.",
 		Args:  cobra.ExactArgs(1),
 		RunE: func(_ *cobra.Command, args []string) error {
 			encrypted, err := relic.Read(tombRoot, args[0])

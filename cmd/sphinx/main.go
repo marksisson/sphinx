@@ -23,10 +23,10 @@ func main() {
 func newRootCommand() *cobra.Command {
 	root := &cobra.Command{
 		Use:           "sphinx",
-		Short:         "Protect and reveal SOPS-encrypted Relics",
+		Short:         "Protect and reveal sealed Relics",
 		SilenceErrors: true,
 		SilenceUsage:  true,
-		Long: `Sphinx is an identity-aware guardian for SOPS-encrypted secrets.
+		Long: `Sphinx is an identity-aware guardian for sealed Relics.
 
 A Tomb contains Chambers, Chambers contain Relics, and each Relic contains an
 encrypted Essence plus a non-secret Inscription.`,

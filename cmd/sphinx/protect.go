@@ -41,7 +41,7 @@ func newProtectCommand() *cobra.Command {
 		Short: "Run the Sphinx daemon to protect a Tomb",
 		Long: `Run the Sphinx daemon to protect a local or Git-hosted Tomb.
 
-The daemon authenticates Petitions through Tailscale, evaluates Decrees,
+The daemon identifies Petitioners through Tailscale, evaluates Decrees,
 unseals authorized Relics, and records Judgments in the Chronicle.`,
 		Args: cobra.NoArgs,
 		RunE: func(_ *cobra.Command, _ []string) error {

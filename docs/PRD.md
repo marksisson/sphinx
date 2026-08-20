@@ -2,7 +2,7 @@
 
 ## 1. Summary
 
-Sphinx is a small identity-aware secrets-management system. A Sphinx daemon guards a Tomb containing SOPS-encrypted Relics. A Seeker or Envoy answers a Riddle through Tailscale identity, Sphinx evaluates its Decrees, and every Judgment is recorded in the Chronicle.
+Sphinx is a small identity-aware secrets-management system. A Sphinx daemon guards a Tomb containing sealed Relics. A Seeker or Envoy answers a Riddle through Tailscale identity, Sphinx evaluates its Decrees, and every Judgment is recorded in the Chronicle.
 
 The first Temple is a Mac running Sphinx as a per-user LaunchAgent. Its age private identity is held in the macOS login Keychain. The daemon is reachable only through a private Tailscale network. Sphinx trusts the identity reported by Tailscale and does not depend on a specific tailnet identity provider.
 
@@ -55,7 +55,7 @@ A relative path inside a Git checkout may be selected with `--tomb-path`. A bran
 - Keep the SOPS encryption policy internal to Sphinx without a Tomb `.sops.yaml`.
 - Prompt for structured Essence and Inscription fields from versioned Tomb schemas.
 - Support local and remote Git Tombs without coupling Sphinx to one secret repository.
-- Authenticate every Relic Petition with Tailscale LocalAPI `WhoIs`.
+- Identify and authenticate the Petitioner for every Relic Petition with Tailscale LocalAPI `WhoIs`.
 - Treat the identity-provider-agnostic Tailscale login as the v1 Seeker identity.
 - Authorize Relic paths using a small, reviewable Decree file.
 - Return only a Relic's Essence, not its complete decrypted document.

@@ -1,6 +1,6 @@
 # Sphinx
 
-Sphinx is an identity-aware guardian for SOPS-encrypted secrets.
+Sphinx is an identity-aware guardian for sealed Relics.
 
 > A **Sphinx** guards **Tombs**. Tombs contain **Chambers**, and Chambers hold **Relics**. A **Seeker** or **Envoy** answers a **Riddle** to prove its identity. **Decrees** determine whether Passage is granted, and each Judgment is recorded in the **Chronicle**.
 
@@ -12,7 +12,7 @@ This is an early MVP for a Mac Temple on a private Tailscale network. It support
 
 - macOS Keychain storage for Sphinx's age identity
 - schema-driven `entomb`, `inspect`, `inscribe`, `reseal`, and `reveal` commands
-- in-process SOPS/age encryption, decryption, and MAC verification
+- authenticated in-process encryption and decryption with age
 - Keychain-backed online decryption plus user-chosen age-scrypt recovery
 - schema- and Relic-aware shell completion
 - local directories and remote Git repositories as Tombs
@@ -180,7 +180,7 @@ Completion is available for bash, zsh, fish, and PowerShell. It discovers schema
 
 ## Security properties
 
-- The API fails closed when Tailscale cannot identify a Petition.
+- The API fails closed when Tailscale cannot identify a Petitioner.
 - Only age encryption is handled; there is no GPG fallback.
 - The online age identity is loaded from Keychain without an identity file or environment variable.
 - Recovery uses age's built-in scrypt recipient and a passphrase read from a terminal with echo disabled.

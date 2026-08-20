@@ -41,8 +41,10 @@ A Tomb may be a local directory or a Git repository hosted by GitHub or another 
 | Structured Essence field | **Facet** | One named value within a structured Essence |
 | Online cryptographic identity | **Guardian** | The Keychain-backed private age identity used by the Sphinx daemon |
 | Public age recipient | **Cartouche** | The Guardian's public encryption recipient |
+| Operation request | **Petition** | A request submitted to the Sphinx |
+| Generic or unauthenticated caller | **Petitioner** | A person or workload submitting a Petition |
 | Authentication challenge | **Riddle** | A challenge posed by the Sphinx to verify identity |
-| Human identity / caller | **Seeker** | A person requesting access |
+| Authenticated human identity | **Seeker** | A person whose identity has been established |
 | Service identity / workload | **Envoy** | A machine or service acting as an authenticated principal |
 | Authorization policy | **Decree** | A rule describing who may perform which actions |
 | Granted authorization | **Passage** | Permission to access or act on protected resources |
@@ -85,12 +87,16 @@ where:
 
 The **Riddle** represents the authentication challenge.
 
+A **Petitioner** is the generic caller submitting a **Petition**. After the Riddle establishes identity, the Petitioner is recognized as a human Seeker or workload Envoy.
+
 This mapping is intentionally close to the Sphinx myth: the Sphinx does not reveal protected knowledge merely because someone asks. The requester must first prove that they are entitled to proceed.
 
 Conceptually:
 
 ```text
-Seeker / Envoy
+  Petitioner
+      |
+submits Petition
       |
       v
    Sphinx
@@ -100,7 +106,7 @@ Seeker / Envoy
  identity proof
       |
       v
-  authenticated
+Seeker / Envoy
 ```
 
 A Riddle may correspond internally to one or more real authentication mechanisms, including:
