@@ -163,7 +163,7 @@ Evaluate Decrees
 The metaphor can extend naturally into CLI and API operations.
 
 ```bash
-sphinx serve --tomb github:example/production-secrets --tomb-path secrets
+sphinx guard --tomb github:example/production-secrets --tomb-path secrets
 sphinx relic reveal database/postgres-password
 
 # Administrative operations:

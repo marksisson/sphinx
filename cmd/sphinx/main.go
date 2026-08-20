@@ -31,7 +31,7 @@ func newRootCommand() *cobra.Command {
 A Tomb contains Chambers, Chambers contain Relics, and each Relic contains an
 encrypted Essence plus a non-secret Inscription.`,
 	}
-	root.AddCommand(newKeyCommand(), newServeCommand(), newRelicCommand(), newCompletionCommand(root))
+	root.AddCommand(newKeyCommand(), newGuardCommand(), newRelicCommand(), newCompletionCommand(root))
 	return root
 }
 

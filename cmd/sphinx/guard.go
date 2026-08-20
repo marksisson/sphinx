@@ -22,7 +22,7 @@ import (
 	"github.com/spf13/cobra"
 )
 
-type serveOptions struct {
+type guardOptions struct {
 	listen        string
 	tomb          string
 	tombReference string
@@ -33,15 +33,19 @@ type serveOptions struct {
 	key           keyOptions
 }
 
-func newServeCommand() *cobra.Command {
+func newGuardCommand() *cobra.Command {
 	cache, _ := os.UserCacheDir()
-	options := serveOptions{tombCache: filepath.Join(cache, "sphinx", "tombs")}
+	options := guardOptions{tombCache: filepath.Join(cache, "sphinx", "tombs")}
 	command := &cobra.Command{
-		Use:   "serve",
-		Short: "Guard a local or Git-hosted Tomb",
-		Args:  cobra.NoArgs,
+		Use:   "guard",
+		Short: "Run the Sphinx daemon to guard a Tomb",
+		Long: `Run the Sphinx daemon to guard a local or Git-hosted Tomb.
+
+The daemon authenticates Petitions through Tailscale, evaluates Decrees,
+unseals authorized Relics, and records Judgments in the Chronicle.`,
+		Args: cobra.NoArgs,
 		RunE: func(_ *cobra.Command, _ []string) error {
-			return runServe(options)
+			return runGuard(options)
 		},
 	}
 	command.Flags().StringVar(&options.listen, "listen", "127.0.0.1:8787", "HTTP listen address")
@@ -55,7 +59,7 @@ func newServeCommand() *cobra.Command {
 	return command
 }
 
-func runServe(options serveOptions) error {
+func runGuard(options guardOptions) error {
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer stop()
 	logger := slog.New(slog.NewJSONHandler(os.Stderr, nil))

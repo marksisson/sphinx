@@ -27,7 +27,7 @@ sphinx relic reveal --facet api_key services/anthropic --server https://sphinx.e
 The same executable runs the daemon:
 
 ```console
-sphinx serve \
+sphinx guard \
   --tomb github:example/secrets-tomb \
   --tomb-ref main \
   --tomb-path secrets \

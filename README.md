@@ -101,7 +101,7 @@ sphinx relic reseal services/anthropic
 If the supplied path is already the Relic root:
 
 ```console
-nix run . -- serve \
+nix run . -- guard \
   --tomb /absolute/path/to/secrets \
   --decree "$PWD/decree.yaml" \
   --chronicle "$HOME/Library/Logs/sphinx-chronicle.jsonl"
@@ -110,7 +110,7 @@ nix run . -- serve \
 ## Guard a GitHub Tomb
 
 ```console
-nix run . -- serve \
+nix run . -- guard \
   --tomb github:example/secrets-tomb \
   --tomb-ref main \
   --tomb-path secrets \
