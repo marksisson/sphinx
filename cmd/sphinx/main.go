@@ -31,7 +31,28 @@ func newRootCommand() *cobra.Command {
 A Tomb contains Chambers, Chambers contain Relics, and each Relic contains an
 encrypted Essence plus a non-secret Inscription.`,
 	}
-	root.AddCommand(newGuardianCommand(), newProtectCommand(), newRelicCommand(), newCompletionCommand(root))
+	root.AddGroup(
+		&cobra.Group{ID: "sphinx", Title: "Sphinx Commands:"},
+		&cobra.Group{ID: "utility", Title: "Utility Commands:"},
+	)
+
+	guardian := newGuardianCommand()
+	guardian.GroupID = "sphinx"
+	protect := newProtectCommand()
+	protect.GroupID = "sphinx"
+	relic := newRelicCommand()
+	relic.GroupID = "sphinx"
+	completion := newCompletionCommand(root)
+	completion.GroupID = "utility"
+	root.AddCommand(guardian, protect, relic, completion)
+
+	root.InitDefaultHelpCmd()
+	for _, command := range root.Commands() {
+		if command.Name() == "help" {
+			command.GroupID = "utility"
+			break
+		}
+	}
 	return root
 }
 
