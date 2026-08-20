@@ -14,11 +14,12 @@ A Tomb may be either a local directory or a Git repository, including a private 
 
 ### Sphinx client
 
-The `sphinx` command-line client submits Petitions to a Sphinx daemon and manages the local Keychain identity used by the daemon.
+The `sphinx` command-line client submits Petitions to a Sphinx daemon, manages the local Keychain identity, and authors schema-driven Relics.
 
 ```console
 sphinx key init
-sphinx relic reveal openai/api/key --server https://sphinx.example.ts.net
+sphinx relic entomb --schema anthropic-api-key/v1 services/anthropic
+sphinx relic reveal --facet api_key services/anthropic --server https://sphinx.example.ts.net
 ```
 
 ### Sphinx daemon
@@ -48,8 +49,11 @@ A relative path inside a Git checkout may be selected with `--tomb-path`. A bran
 ## 3. Goals
 
 - Remove GPG and GPG keyring handling from runtime access.
-- Decrypt structured SOPS YAML using age entirely in process.
-- Keep the Sphinx age identity in macOS Keychain, never in a Tomb, environment variable, command argument, or temporary file.
+- Encrypt and decrypt structured SOPS YAML using age entirely in process.
+- Keep the online Sphinx age identity in macOS Keychain, never in a Tomb, environment variable, command argument, or temporary file.
+- Wrap each Relic data key for exactly one online X25519 recipient and one user-chosen age-scrypt recovery passphrase.
+- Keep the SOPS encryption policy internal to Sphinx without a Tomb `.sops.yaml`.
+- Prompt for structured Essence and Inscription fields from versioned Tomb schemas.
 - Support local and remote Git Tombs without coupling Sphinx to one secret repository.
 - Authenticate every Relic Petition with Tailscale LocalAPI `WhoIs`.
 - Treat the identity-provider-agnostic Tailscale login as the v1 Seeker identity.
@@ -63,7 +67,7 @@ A relative path inside a Git checkout may be selected with `--tomb-path`. A bran
 
 - Public internet exposure or Tailscale Funnel.
 - A web interface.
-- Creating, editing, rotating, or committing Relics through the API.
+- Creating, editing, or committing Relics through the network API; authoring commands operate on a local Tomb.
 - Automatically refreshing a remote Tomb while the daemon is running.
 - Direct identity-provider OAuth, organization/group queries, or workload OIDC.
 - Serving multiple Tombs from one daemon process.
@@ -77,9 +81,10 @@ A relative path inside a Git checkout may be selected with `--tomb-path`. A bran
 - **Identity provider and Tailscale control plane:** establish the tailnet identity.
 - **tailscaled LocalAPI:** maps a connection to a trusted login, node, and tags.
 - **Decree:** maps trusted identities and node tags to Relic path patterns.
-- **macOS Keychain:** protects the Sphinx age identity at rest.
-- **Git Tomb:** supplies versioned encrypted documents at a selected revision.
-- **SOPS:** authenticates and decrypts each Relic document.
+- **macOS Keychain:** protects the online Sphinx age identity at rest.
+- **Recovery passphrase:** lets an operator recover Relics locally without the online identity.
+- **Git Tomb:** supplies versioned schemas and encrypted documents at a selected revision.
+- **SOPS:** authenticates and encrypts or decrypts each Relic document.
 
 ### Assumptions
 
@@ -88,7 +93,7 @@ A relative path inside a Git checkout may be selected with `--tomb-path`. A bran
 - FileVault is enabled and the Temple is maintained as a trusted host.
 - Tomb writers are trusted secret administrators. A writer can replace encrypted Essence because the age recipient is public.
 - The Decree is controlled separately from the Tomb, preventing Tomb writers from granting themselves Passage.
-- A separate offline recovery age identity exists.
+- A strong user-chosen recovery passphrase is retained offline and is never generated or stored by Sphinx.
 - Private Git credentials are available non-interactively to the LaunchAgent through SSH or a secure Git credential helper.
 
 ### Known limitations
@@ -104,10 +109,13 @@ A relative path inside a Git checkout may be selected with `--tomb-path`. A bran
 
 ### Key management
 
-- `sphinx key init` generates an X25519 age identity and stores it as a generic-password Keychain item.
-- `sphinx key recipient` prints only the public age recipient.
+- `sphinx key init` generates the online X25519 age identity and stores it as a generic-password Keychain item.
+- `sphinx key recipient` prints only the online public age recipient.
 - Initialization refuses to overwrite an existing identity.
 - The default Keychain service is `dev.marksisson.sphinx.age`; the account is `sphinx-v1`.
+- Recovery uses age's built-in scrypt recipient with a passphrase read from a terminal with echo disabled.
+- Sphinx never generates, stores, logs, or accepts the recovery passphrase through arguments or environment variables.
+- `.sphinx/tomb.yaml` binds a Tomb to one online recipient and contains only an encrypted recovery check, never the passphrase.
 
 ### Tomb materialization
 
@@ -121,14 +129,27 @@ A relative path inside a Git checkout may be selected with `--tomb-path`. A bran
 - Checkout paths and symlinks must not escape the cached repository.
 - Sphinx logs the resolved commit but never logs credentials or Essence.
 
+### Schemas and Relic authoring
+
+- Schemas are declarative YAML documents below `.sphinx/schemas/` and cannot execute commands or templates.
+- A schema versions and defines typed Essence and Inscription fields.
+- `sphinx relic entomb` creates `PATH/relic.yaml`, refuses overwrite, and requires the recovery passphrase.
+- `sphinx relic reseal` replaces the Essence, verifies the recovery passphrase, and rotates the SOPS data key.
+- `sphinx relic inscribe` updates only non-secret metadata while retaining the data key and both recipient envelopes.
+- `sphinx relic inspect` displays only the schema and Inscription.
+- Sphinx always encrypts the complete `essence` branch and does not permit schemas to alter encryption policy.
+- Writes use a mode-`0600` temporary file and atomic rename.
+
 ### Relic revelation
 
-- `GET /v1/relics/{path}` reads `${TOMB_ROOT}/{path}/secret.yaml`.
+- `GET /v1/relics/{path}` reads `${TOMB_ROOT}/{path}/relic.yaml`.
 - Paths contain only slash-separated `[A-Za-z0-9._-]+` segments.
 - Absolute paths, empty segments, symlink escapes, `.` and `..` are rejected.
 - The SOPS MAC is verified before Essence is returned.
-- Only age master keys are serviced; there is no GPG fallback.
+- Only age encryption is serviced; there is no GPG fallback.
 - The response is JSON containing `essence`.
+- `?field=NAME` and CLI `--facet NAME` return one schema-defined Essence field.
+- `sphinx relic reveal --recovery` decrypts a local Tomb using a securely prompted passphrase and does not contact the daemon.
 
 ### Riddle and Judgment
 
@@ -146,7 +167,7 @@ Each Petition records:
 - request ID
 - login when available
 - node and tags when available
-- requested Relic path
+- requested Relic path and optional Facet
 - allow or deny Judgment
 - non-sensitive reason
 
@@ -175,21 +196,21 @@ Path patterns support `*` within one segment and `**` across segments. A rule wi
 - Maximum encrypted Relic size: 1 MiB.
 - Responses set `Cache-Control: no-store`.
 - HTTP server timeouts are configured.
-- Chronicle files are created with mode `0600`.
-- Tomb caches are created with mode `0700`.
+- Chronicle files and locally authored `relic.yaml` files are created with mode `0600`.
+- Tomb caches and newly created Relic directories are created with mode `0700`.
 - Shutdown is graceful on `SIGINT` or `SIGTERM`.
 - The daemon runs as a LaunchAgent, not root or a system daemon.
 
 ## 9. Migration from PGP to age
 
-1. Run `sphinx key init` and record the recipient.
-2. Generate and securely back up an independent recovery identity.
-3. Add both age recipients to the Tomb's `.sops.yaml` while retaining PGP.
-4. Run `sops updatekeys` for every Relic and verify age-only decryption.
-5. Remove the PGP recipient and run `sops updatekeys` again.
+1. Run `sphinx key init` and record the online recipient.
+2. Choose and securely retain a strong recovery passphrase; Sphinx does not generate one.
+3. Define the destination Relic schemas below `.sphinx/schemas/`.
+4. Decrypt each existing PGP Relic in a controlled environment and pass its values directly to `sphinx relic entomb` without a plaintext temporary file.
+5. Verify both online and `--recovery` revelation before removing the PGP recipient.
 6. Archive the PGP private key for a defined rollback period, then destroy it.
 
-Migration is never automatic because it requires the existing PGP private key and an explicit recovery decision.
+Migration is never automatic because it requires the existing PGP private key, schema selection, and an explicit recovery decision.
 
 ## 10. Future work
 
@@ -208,10 +229,12 @@ Migration is never automatic because it requires the existing PGP private key an
 
 - Sphinx is maintained in a public repository containing no operational Tomb or private identity.
 - No Sphinx code invokes GPG or requires `SOPS_AGE_KEY_FILE`.
-- Keychain identity material is injected directly into SOPS's age key service in memory.
+- Keychain identity material is used directly in memory without an identity file.
+- New Relics contain one online age wrapping and one age-scrypt recovery wrapping.
+- Tombs require no `.sops.yaml`; encryption selection cannot be changed by a schema.
 - Local, GitHub, HTTPS Git, and SSH Git Tomb references are parsed safely.
 - A remote Tomb is checked out at a known commit in a private cache.
 - An authorized Tailscale identity can reveal an age-encrypted Relic.
 - Unauthorized identities, malformed paths, modified ciphertext, PGP-only files, unsafe Git references, and checkout escapes fail closed.
-- Tests cover Tomb parsing/materialization, path validation, glob matching, authorization, and SOPS age/MAC verification.
+- Tests cover Tomb parsing/materialization and configuration, schemas, path validation, glob matching, authorization, and online/recovery SOPS age/MAC verification.
 - `nix flake check` builds and tests Sphinx on the current Darwin system.

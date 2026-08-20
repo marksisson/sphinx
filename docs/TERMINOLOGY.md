@@ -38,6 +38,7 @@ A Tomb may be a local directory or a Git repository hosted by GitHub or another 
 | Individual secret | **Relic** | A valuable protected item stored within a Chamber |
 | Secret metadata | **Inscription** | Non-secret descriptive information attached to a Relic |
 | Secret payload / value | **Essence** | The protected contents of a Relic |
+| Structured Essence field | **Facet** | One named value within a structured Essence |
 | Authentication challenge | **Riddle** | A challenge posed by the Sphinx to verify identity |
 | Human identity / caller | **Seeker** | A person requesting access |
 | Service identity / workload | **Envoy** | A machine or service acting as an authenticated principal |
@@ -165,8 +166,14 @@ The metaphor can extend naturally into CLI and API operations.
 sphinx serve --tomb github:example/production-secrets --tomb-path secrets
 sphinx relic reveal database/postgres-password
 
-# Possible future administrative operations:
-sphinx relic create database/postgres-password
+# Administrative operations:
+sphinx relic entomb database/postgres-password
+sphinx relic inspect database/postgres-password
+sphinx relic inscribe database/postgres-password
+sphinx relic reseal database/postgres-password
+sphinx relic reveal database/postgres-password --facet password
+
+# Possible future operations:
 sphinx tomb seal
 sphinx chronicle read
 ```
@@ -175,8 +182,11 @@ Possible verbs:
 
 | Operation | Preferred term |
 |---|---|
-| Create/store a secret | **Create** or **Entomb** |
+| Create/store a secret | **Entomb** |
+| Update secret metadata | **Inscribe** |
+| Replace secret payload | **Reseal** |
 | Retrieve a secret | **Reveal** |
+| Select a structured value | **Facet** |
 | Encrypt / lock | **Seal** |
 | Decrypt / unlock | **Unseal** |
 | Grant access | **Grant Passage** |
