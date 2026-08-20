@@ -4,7 +4,7 @@
 
 Sphinx is a small identity-aware secrets-management system. A Sphinx daemon guards a Tomb containing SOPS-encrypted Relics. A Seeker or Envoy answers a Riddle through Tailscale identity, Sphinx evaluates its Decrees, and every Judgment is recorded in the Chronicle.
 
-The first Temple is a Mac running Sphinx as a per-user LaunchAgent. Its age private identity is held in the macOS login Keychain. The daemon is reachable only through a private Tailscale network whose identity provider is GitHub.
+The first Temple is a Mac running Sphinx as a per-user LaunchAgent. Its age private identity is held in the macOS login Keychain. The daemon is reachable only through a private Tailscale network. Sphinx trusts the identity reported by Tailscale and does not depend on a specific tailnet identity provider.
 
 A Tomb may be either a local directory or a Git repository, including a private GitHub repository. Sphinx itself is developed publicly and contains no production Tomb, private identity, or secret material.
 
@@ -52,7 +52,7 @@ A relative path inside a Git checkout may be selected with `--tomb-path`. A bran
 - Keep the Sphinx age identity in macOS Keychain, never in a Tomb, environment variable, command argument, or temporary file.
 - Support local and remote Git Tombs without coupling Sphinx to one secret repository.
 - Authenticate every Relic Petition with Tailscale LocalAPI `WhoIs`.
-- Treat the GitHub-backed Tailscale login as the v1 Seeker identity.
+- Treat the identity-provider-agnostic Tailscale login as the v1 Seeker identity.
 - Authorize Relic paths using a small, reviewable Decree file.
 - Return only a Relic's Essence, not its complete decrypted document.
 - Record every allow or deny Judgment without recording Essence.
@@ -65,7 +65,7 @@ A relative path inside a Git checkout may be selected with `--tomb-path`. A bran
 - A web interface.
 - Creating, editing, rotating, or committing Relics through the API.
 - Automatically refreshing a remote Tomb while the daemon is running.
-- Direct GitHub OAuth, organization/team queries, or GitHub Actions OIDC.
+- Direct identity-provider OAuth, organization/group queries, or workload OIDC.
 - Serving multiple Tombs from one daemon process.
 - High availability, multi-host consensus, or remote KMS.
 - Preventing an authorized caller from retaining Essence after revelation.
@@ -74,7 +74,7 @@ A relative path inside a Git checkout may be selected with `--tomb-path`. A bran
 
 ### Trust boundaries
 
-- **GitHub/Tailscale control plane:** establishes the tailnet identity.
+- **Identity provider and Tailscale control plane:** establish the tailnet identity.
 - **tailscaled LocalAPI:** maps a connection to a trusted login, node, and tags.
 - **Decree:** maps trusted identities and node tags to Relic path patterns.
 - **macOS Keychain:** protects the Sphinx age identity at rest.
@@ -96,7 +96,7 @@ A relative path inside a Git checkout may be selected with `--tomb-path`. A bran
 - The age identity and revealed Essence exist in process memory while needed.
 - Malware with the Temple user's privileges may call Sphinx or capture results.
 - Static third-party credentials remain usable after retrieval until provider rotation.
-- Tailscale or GitHub identity compromise may grant Passage allowed by Decrees.
+- Tailscale or identity-provider compromise may grant Passage allowed by Decrees.
 - Branches and tags are mutable. High-value deployments should use a pinned commit or establish signed-commit verification in a future release.
 - A remote Tomb is fetched at daemon startup; updates require a restart in v1.
 
@@ -197,9 +197,9 @@ Migration is never automatic because it requires the existing PGP private key an
 - Periodic Tomb refresh with atomic revision swaps.
 - Signed-commit or allow-listed-commit verification.
 - Multiple named Tombs per daemon.
-- Direct GitHub OAuth Device Flow and short-lived Sphinx sessions.
-- GitHub Actions OIDC for Envoys.
-- GitHub organization/team Decrees.
+- Direct identity-provider OAuth and short-lived Sphinx sessions.
+- Workload OIDC for Envoys.
+- Identity-provider organization/group Decrees.
 - Signed/notarized binary-bound Keychain access controls.
 - Hardware-backed recovery through an age plugin.
 - Tamper-evident remote Chronicle sink.

@@ -14,7 +14,7 @@ This is an early MVP for a Mac Temple on a private Tailscale network. It support
 - in-process SOPS/age decryption and MAC verification
 - local directories and remote Git repositories as Tombs
 - GitHub repository shorthand
-- Tailscale `WhoIs` as a GitHub-backed Riddle
+- Tailscale `WhoIs` as an identity-provider-agnostic Riddle
 - path-based Decrees
 - JSONL Chronicle entries
 - a basic Relic revelation client
