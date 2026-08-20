@@ -22,7 +22,7 @@ import (
 	"github.com/spf13/cobra"
 )
 
-type guardOptions struct {
+type protectOptions struct {
 	listen        string
 	tomb          string
 	tombReference string
@@ -30,22 +30,22 @@ type guardOptions struct {
 	tombCache     string
 	decree        string
 	chronicle     string
-	key           keyOptions
+	guardian      guardianOptions
 }
 
-func newGuardCommand() *cobra.Command {
+func newProtectCommand() *cobra.Command {
 	cache, _ := os.UserCacheDir()
-	options := guardOptions{tombCache: filepath.Join(cache, "sphinx", "tombs")}
+	options := protectOptions{tombCache: filepath.Join(cache, "sphinx", "tombs")}
 	command := &cobra.Command{
-		Use:   "guard",
-		Short: "Run the Sphinx daemon to guard a Tomb",
-		Long: `Run the Sphinx daemon to guard a local or Git-hosted Tomb.
+		Use:   "protect",
+		Short: "Run the Sphinx daemon to protect a Tomb",
+		Long: `Run the Sphinx daemon to protect a local or Git-hosted Tomb.
 
 The daemon authenticates Petitions through Tailscale, evaluates Decrees,
 unseals authorized Relics, and records Judgments in the Chronicle.`,
 		Args: cobra.NoArgs,
 		RunE: func(_ *cobra.Command, _ []string) error {
-			return runGuard(options)
+			return runProtect(options)
 		},
 	}
 	command.Flags().StringVar(&options.listen, "listen", "127.0.0.1:8787", "HTTP listen address")
@@ -55,11 +55,11 @@ unseals authorized Relics, and records Judgments in the Chronicle.`,
 	command.Flags().StringVar(&options.tombCache, "tomb-cache", options.tombCache, "Git Tomb checkout cache")
 	command.Flags().StringVar(&options.decree, "decree", "./decree.yaml", "authorization Decree")
 	command.Flags().StringVar(&options.chronicle, "chronicle", "./sphinx-chronicle.jsonl", "Chronicle JSONL file")
-	addKeyFlags(command, &options.key)
+	addGuardianFlags(command, &options.guardian)
 	return command
 }
 
-func runGuard(options guardOptions) error {
+func runProtect(options protectOptions) error {
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer stop()
 	logger := slog.New(slog.NewJSONHandler(os.Stderr, nil))
@@ -74,11 +74,11 @@ func runGuard(options guardOptions) error {
 	}
 	logger.Info("Tomb opened", "remote", materialized.Remote, "revision", materialized.Revision)
 
-	encodedIdentity, err := keychain.Get(options.key.service, options.key.account)
+	encodedIdentity, err := keychain.Get(options.guardian.service, options.guardian.account)
 	if err != nil {
 		return fmt.Errorf("load Sphinx identity: %w", err)
 	}
-	_, onlineRecipient, err := onlineIdentity(options.key)
+	_, onlineRecipient, err := onlineIdentity(options.guardian)
 	if err != nil {
 		return err
 	}

@@ -37,14 +37,14 @@ Or run directly from GitHub:
 nix run github:marksisson/sphinx -- help
 ```
 
-## Initialize Sphinx
+## Awaken the Guardian
 
 ```console
-nix run . -- key init
-nix run . -- key recipient
+nix run . -- guardian awaken
+nix run . -- guardian cartouche
 ```
 
-`key init` stores the online age identity in the login Keychain and prints its public recipient. Sphinx never generates or stores the Tomb recovery passphrase; the user supplies it securely when entombing or resealing a Relic.
+`guardian awaken` generates the Guardian's online age identity, stores it in the login Keychain, and prints its public recipient. `guardian cartouche` prints that public age recipient again. Sphinx never generates or stores the Tomb recovery passphrase; the user supplies it securely when entombing or resealing a Relic.
 
 ## Write a Decree
 
@@ -96,21 +96,21 @@ sphinx relic reseal services/anthropic
 
 `inspect` shows only the schema and non-secret Inscription. `inscribe` retains the Essence and recovery wrapping. `reseal` replaces the Essence, verifies the recovery passphrase, and rotates the SOPS data key.
 
-## Guard a local Tomb
+## Protect a local Tomb
 
 If the supplied path is already the Relic root:
 
 ```console
-nix run . -- guard \
+nix run . -- protect \
   --tomb /absolute/path/to/secrets \
   --decree "$PWD/decree.yaml" \
   --chronicle "$HOME/Library/Logs/sphinx-chronicle.jsonl"
 ```
 
-## Guard a GitHub Tomb
+## Protect a GitHub Tomb
 
 ```console
-nix run . -- guard \
+nix run . -- protect \
   --tomb github:example/secrets-tomb \
   --tomb-ref main \
   --tomb-path secrets \

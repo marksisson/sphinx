@@ -29,7 +29,7 @@ type authorOptions struct {
 	schema   string
 	stdin    bool
 	fromJSON string
-	key      keyOptions
+	guardian guardianOptions
 }
 
 type revealOptions struct {
@@ -101,14 +101,14 @@ the recovery passphrase is not required.`,
 		},
 	}
 	command.Flags().StringVar(&options.tomb, "tomb", options.tomb, "local Tomb root")
-	addKeyFlags(command, &options.key)
+	addGuardianFlags(command, &options.guardian)
 	registerPathCompletion(command, &options.tomb)
 	return command
 }
 
 func newInspectCommand() *cobra.Command {
 	var tombRoot string
-	var key keyOptions
+	var guardian guardianOptions
 	command := &cobra.Command{
 		Use:   "inspect PATH",
 		Short: "Show a Relic's schema and non-secret Inscription",
@@ -119,7 +119,7 @@ func newInspectCommand() *cobra.Command {
 			if err != nil {
 				return err
 			}
-			identity, recipient, err := onlineIdentity(key)
+			identity, recipient, err := onlineIdentity(guardian)
 			if err != nil {
 				return err
 			}
@@ -160,7 +160,7 @@ func newInspectCommand() *cobra.Command {
 		},
 	}
 	command.Flags().StringVar(&tombRoot, "tomb", "./secrets", "local Tomb root")
-	addKeyFlags(command, &key)
+	addGuardianFlags(command, &guardian)
 	registerPathCompletion(command, &tombRoot)
 	return command
 }
@@ -205,7 +205,7 @@ func addAuthorFlags(command *cobra.Command, options *authorOptions, includeSchem
 	command.Flags().BoolVar(&options.stdin, "stdin", false, "read Essence and Inscription as JSON from stdin")
 	command.Flags().StringVar(&options.fromJSON, "from-json", "", "read Essence and Inscription from a JSON file")
 	command.MarkFlagsMutuallyExclusive("stdin", "from-json")
-	addKeyFlags(command, &options.key)
+	addGuardianFlags(command, &options.guardian)
 }
 
 func runEntomb(options authorOptions, relicPath string) error {
@@ -233,7 +233,7 @@ func runEntomb(options authorOptions, relicPath string) error {
 	if err != nil {
 		return err
 	}
-	_, recipient, err := onlineIdentity(options.key)
+	_, recipient, err := onlineIdentity(options.guardian)
 	if err != nil {
 		return err
 	}
@@ -262,7 +262,7 @@ func runReseal(options authorOptions, relicPath string) error {
 	if err != nil {
 		return err
 	}
-	identity, recipient, err := onlineIdentity(options.key)
+	identity, recipient, err := onlineIdentity(options.guardian)
 	if err != nil {
 		return err
 	}
@@ -326,7 +326,7 @@ func runInscribe(options authorOptions, relicPath string) error {
 	if err != nil {
 		return err
 	}
-	identity, recipient, err := onlineIdentity(options.key)
+	identity, recipient, err := onlineIdentity(options.guardian)
 	if err != nil {
 		return err
 	}
@@ -622,7 +622,7 @@ func ensureTombConfiguration(root, recipient, passphrase string, create bool) er
 	return nil
 }
 
-func onlineIdentity(options keyOptions) (identity, recipient string, err error) {
+func onlineIdentity(options guardianOptions) (identity, recipient string, err error) {
 	identity, err = keychain.Get(options.service, options.account)
 	if err != nil {
 		return "", "", fmt.Errorf("load Sphinx identity: %w", err)

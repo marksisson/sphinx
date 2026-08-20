@@ -8,7 +8,7 @@
   <key>ProgramArguments</key>
   <array>
     <string>/absolute/path/to/sphinx</string>
-    <string>guard</string>
+    <string>protect</string>
     <string>--listen</string>
     <string>127.0.0.1:8787</string>
     <string>--tomb</string>

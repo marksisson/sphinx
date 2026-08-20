@@ -39,6 +39,8 @@ A Tomb may be a local directory or a Git repository hosted by GitHub or another 
 | Secret metadata | **Inscription** | Non-secret descriptive information attached to a Relic |
 | Secret payload / value | **Essence** | The protected contents of a Relic |
 | Structured Essence field | **Facet** | One named value within a structured Essence |
+| Online cryptographic identity | **Guardian** | The Keychain-backed private age identity used by the Sphinx daemon |
+| Public age recipient | **Cartouche** | The Guardian's public encryption recipient |
 | Authentication challenge | **Riddle** | A challenge posed by the Sphinx to verify identity |
 | Human identity / caller | **Seeker** | A person requesting access |
 | Service identity / workload | **Envoy** | A machine or service acting as an authenticated principal |
@@ -163,8 +165,12 @@ Evaluate Decrees
 The metaphor can extend naturally into CLI and API operations.
 
 ```bash
-sphinx guard --tomb github:example/production-secrets --tomb-path secrets
+sphinx protect --tomb github:example/production-secrets --tomb-path secrets
 sphinx relic reveal database/postgres-password
+
+# Guardian identity operations:
+sphinx guardian awaken
+sphinx guardian cartouche
 
 # Administrative operations:
 sphinx relic entomb database/postgres-password
@@ -182,6 +188,9 @@ Possible verbs:
 
 | Operation | Preferred term |
 |---|---|
+| Initialize the Guardian identity | **Awaken** |
+| Print the public age recipient | **Cartouche** |
+| Run the daemon for a Tomb | **Protect** |
 | Create/store a secret | **Entomb** |
 | Update secret metadata | **Inscribe** |
 | Replace secret payload | **Reseal** |
@@ -207,7 +216,6 @@ The following terms may be useful as the product evolves.
 |---|---|---|
 | Authorization decision | **Judgment** | The Sphinx decides whether Passage is permitted |
 | Secret reference / pointer | **Glyph** | A symbolic reference to a protected object |
-| Human-readable alias | **Cartouche** | A named identifier associated with an important object |
 | Temporary credential | **Token** | Already fits both security and the metaphor |
 | Temporary access | **Passage** | Naturally supports time-bounded access |
 | Expiration / TTL | **Hourglass** | Best suited to UI language rather than core API fields |

@@ -17,7 +17,7 @@ A Tomb may be either a local directory or a Git repository, including a private 
 The `sphinx` command-line client submits Petitions to a Sphinx daemon, manages the local Keychain identity, and authors schema-driven Relics.
 
 ```console
-sphinx key init
+sphinx guardian awaken
 sphinx relic entomb --schema anthropic-api-key/v1 services/anthropic
 sphinx relic reveal --facet api_key services/anthropic --server https://sphinx.example.ts.net
 ```
@@ -27,7 +27,7 @@ sphinx relic reveal --facet api_key services/anthropic --server https://sphinx.e
 The same executable runs the daemon:
 
 ```console
-sphinx guard \
+sphinx protect \
   --tomb github:example/secrets-tomb \
   --tomb-ref main \
   --tomb-path secrets \
@@ -107,10 +107,10 @@ A relative path inside a Git checkout may be selected with `--tomb-path`. A bran
 
 ## 6. Functional requirements
 
-### Key management
+### Guardian identity management
 
-- `sphinx key init` generates the online X25519 age identity and stores it as a generic-password Keychain item.
-- `sphinx key recipient` prints only the online public age recipient.
+- `sphinx guardian awaken` generates the Guardian's online X25519 age identity and stores it as a generic-password Keychain item.
+- `sphinx guardian cartouche` prints only the Guardian's public age recipient.
 - Initialization refuses to overwrite an existing identity.
 - The default Keychain service is `dev.marksisson.sphinx.age`; the account is `sphinx-v1`.
 - Recovery uses age's built-in scrypt recipient with a passphrase read from a terminal with echo disabled.
@@ -203,7 +203,7 @@ Path patterns support `*` within one segment and `**` across segments. A rule wi
 
 ## 9. Migration from PGP to age
 
-1. Run `sphinx key init` and record the online recipient.
+1. Run `sphinx guardian awaken` and record the Cartouche (online public age recipient).
 2. Choose and securely retain a strong recovery passphrase; Sphinx does not generate one.
 3. Define the destination Relic schemas below `.sphinx/schemas/`.
 4. Decrypt each existing PGP Relic in a controlled environment and pass its values directly to `sphinx relic entomb` without a plaintext temporary file.
