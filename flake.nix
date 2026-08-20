@@ -1,0 +1,81 @@
+{
+  description = "Sphinx identity-aware secret guardian";
+
+  inputs.nixpkgs.url = "github:NixOS/nixpkgs/nixpkgs-unstable";
+
+  outputs =
+    { nixpkgs, ... }:
+    let
+      systems = [
+        "aarch64-darwin"
+        "aarch64-linux"
+        "x86_64-linux"
+      ];
+      forAllSystems = nixpkgs.lib.genAttrs systems;
+      pkgsFor = system: import nixpkgs { inherit system; };
+      sphinxFor =
+        system:
+        let
+          pkgs = pkgsFor system;
+        in
+        pkgs.buildGoModule {
+          pname = "sphinx";
+          version = "0.1.0";
+          src = ./.;
+          subPackages = [ "cmd/sphinx" ];
+          vendorHash = "sha256-E8nTfY1qYio4eD9O8VRW0yclXQpH/caTjbrYK5NMXKw=";
+          nativeBuildInputs = [ pkgs.makeWrapper ];
+          postInstall = ''
+            wrapProgram "$out/bin/sphinx" \
+              --prefix PATH : ${pkgs.lib.makeBinPath [ pkgs.git ]}
+          '';
+          meta = {
+            description = "Identity-aware guardian for SOPS-encrypted Tombs";
+            homepage = "https://github.com/marksisson/sphinx";
+            mainProgram = "sphinx";
+            platforms = nixpkgs.lib.platforms.unix;
+          };
+        };
+    in
+    {
+      packages = forAllSystems (system: {
+        default = sphinxFor system;
+        sphinx = sphinxFor system;
+      });
+
+      apps = forAllSystems (system: {
+        default = {
+          type = "app";
+          program = "${sphinxFor system}/bin/sphinx";
+        };
+        sphinx = {
+          type = "app";
+          program = "${sphinxFor system}/bin/sphinx";
+        };
+      });
+
+      checks = forAllSystems (system: {
+        sphinx = sphinxFor system;
+      });
+
+      devShells = forAllSystems (
+        system:
+        let
+          pkgs = pkgsFor system;
+        in
+        {
+          default = pkgs.mkShell {
+            packages = with pkgs; [
+              age
+              git
+              go
+              gopls
+              sops
+            ];
+          };
+        }
+      );
+
+      formatter = forAllSystems (system: (pkgsFor system).nixfmt);
+    };
+}

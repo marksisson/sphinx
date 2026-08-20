@@ -1,0 +1,5 @@
+# Local Decree, Chronicle, and build output
+decree.yaml
+sphinx-chronicle.jsonl
+result
+result-*

@@ -1,0 +1,39 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+  <key>Label</key>
+  <string>dev.marksisson.sphinx</string>
+
+  <key>ProgramArguments</key>
+  <array>
+    <string>/absolute/path/to/sphinx</string>
+    <string>serve</string>
+    <string>--listen</string>
+    <string>127.0.0.1:8787</string>
+    <string>--tomb</string>
+    <string>github:OWNER/REPOSITORY</string>
+    <string>--tomb-ref</string>
+    <string>main</string>
+    <string>--tomb-path</string>
+    <string>secrets</string>
+    <string>--decree</string>
+    <string>/absolute/path/to/decree.yaml</string>
+    <string>--chronicle</string>
+    <string>/Users/USERNAME/Library/Logs/sphinx-chronicle.jsonl</string>
+  </array>
+
+  <key>RunAtLoad</key>
+  <true/>
+  <key>KeepAlive</key>
+  <true/>
+
+  <key>StandardOutPath</key>
+  <string>/Users/USERNAME/Library/Logs/sphinx.log</string>
+  <key>StandardErrorPath</key>
+  <string>/Users/USERNAME/Library/Logs/sphinx.log</string>
+
+  <key>ProcessType</key>
+  <string>Background</string>
+</dict>
+</plist>

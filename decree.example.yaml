@@ -1,0 +1,10 @@
+version: 1
+rules:
+  - name: personal-admin
+    paths:
+      - "**"
+    tailscale:
+      # Replace this with the Seeker LoginName returned by `tailscale whois`.
+      logins:
+        - "user@example.com"
+      tags: []
