@@ -15,6 +15,7 @@ type Event struct {
 	Node      string    `json:"node,omitempty"`
 	Tags      []string  `json:"tags,omitempty"`
 	Path      string    `json:"path"`
+	Facet     string    `json:"facet,omitempty"`
 	Allowed   bool      `json:"allowed"`
 	Reason    string    `json:"reason"`
 }

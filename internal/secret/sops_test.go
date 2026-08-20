@@ -5,6 +5,8 @@ import (
 	"os"
 	"strings"
 	"testing"
+
+	"filippo.io/age"
 )
 
 func TestValueDecryptsAgeSOPSAndVerifiesMAC(t *testing.T) {
@@ -27,6 +29,50 @@ func TestValueDecryptsAgeSOPSAndVerifiesMAC(t *testing.T) {
 	}
 	if value != "integration-test-value" {
 		t.Fatalf("Value() = %#v, want integration-test-value", value)
+	}
+}
+
+func TestEncryptSupportsOnlineAndPassphraseRecovery(t *testing.T) {
+	identity, err := age.GenerateX25519Identity()
+	if err != nil {
+		t.Fatal(err)
+	}
+	plaintext := []byte("format: 1\nschema: example/v1\ninscription:\n  owner: platform\nessence:\n  api_key: secret-value\n")
+	encrypted, err := Encrypt(plaintext, identity.Recipient().String(), "correct horse battery staple")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if strings.Contains(string(encrypted), "secret-value") || strings.Contains(string(encrypted), "correct horse battery staple") {
+		t.Fatal("encrypted Relic contains secret material")
+	}
+	if !strings.Contains(string(encrypted), "owner: platform") || !strings.Contains(string(encrypted), "age-scrypt-v1") {
+		t.Fatal("encrypted Relic does not retain protected metadata and recovery envelope")
+	}
+
+	decrypter, err := NewDecrypter(identity.String())
+	if err != nil {
+		t.Fatal(err)
+	}
+	online, err := decrypter.Plain(context.Background(), encrypted)
+	if err != nil {
+		t.Fatal(err)
+	}
+	recovery, err := DecryptRecovery(encrypted, "correct horse battery staple")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if string(online) != string(recovery) || !strings.Contains(string(online), "api_key: secret-value") {
+		t.Fatalf("online and recovery plaintext differ:\n%s\n%s", online, recovery)
+	}
+	if _, err := DecryptRecovery(encrypted, "wrong passphrase"); err == nil {
+		t.Fatal("recovery unexpectedly accepted the wrong passphrase")
+	}
+	otherIdentity, err := age.GenerateX25519Identity()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := ValidateRecipients(encrypted, otherIdentity.Recipient().String()); err == nil {
+		t.Fatal("recipient validation unexpectedly accepted another online identity")
 	}
 }
 

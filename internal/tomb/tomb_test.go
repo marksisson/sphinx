@@ -44,7 +44,7 @@ func TestMaterializeGitTomb(t *testing.T) {
 	if err := os.MkdirAll(filepath.Join(repository, "secrets", "example"), 0o700); err != nil {
 		t.Fatal(err)
 	}
-	if err := os.WriteFile(filepath.Join(repository, "secrets", "example", "secret.yaml"), []byte("encrypted"), 0o600); err != nil {
+	if err := os.WriteFile(filepath.Join(repository, "secrets", "example", "relic.yaml"), []byte("encrypted"), 0o600); err != nil {
 		t.Fatal(err)
 	}
 	runTestGit(t, repository, "add", ".")
@@ -60,7 +60,7 @@ func TestMaterializeGitTomb(t *testing.T) {
 	if !materialized.Remote || materialized.Revision == "" {
 		t.Fatalf("Materialize() = %#v", materialized)
 	}
-	if _, err := os.Stat(filepath.Join(materialized.Root, "example", "secret.yaml")); err != nil {
+	if _, err := os.Stat(filepath.Join(materialized.Root, "example", "relic.yaml")); err != nil {
 		t.Fatal(err)
 	}
 }

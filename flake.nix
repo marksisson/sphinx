@@ -23,7 +23,7 @@
           version = "0.1.0";
           src = ./.;
           subPackages = [ "cmd/sphinx" ];
-          vendorHash = "sha256-E8nTfY1qYio4eD9O8VRW0yclXQpH/caTjbrYK5NMXKw=";
+          vendorHash = "sha256-xwkkLn5Ss4A86PukLHIYmX5loGsuNtSs+lMh+lyH8XU=";
           nativeBuildInputs = [ pkgs.makeWrapper ];
           postInstall = ''
             wrapProgram "$out/bin/sphinx" \

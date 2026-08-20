@@ -19,6 +19,8 @@ import (
 	"github.com/marksisson/sphinx/internal/audit"
 	"github.com/marksisson/sphinx/internal/identity"
 	"github.com/marksisson/sphinx/internal/policy"
+	"github.com/marksisson/sphinx/internal/relic"
+	"github.com/marksisson/sphinx/internal/schema"
 )
 
 const maxDocumentSize = 1 << 20
@@ -26,7 +28,7 @@ const maxDocumentSize = 1 << 20
 var pathSegment = regexp.MustCompile(`^[A-Za-z0-9._-]+$`)
 
 type ValueDecrypter interface {
-	Value(context.Context, []byte) (any, error)
+	Plain(context.Context, []byte) ([]byte, error)
 }
 
 type Server struct {
@@ -74,7 +76,8 @@ func (s *Server) health(writer http.ResponseWriter, _ *http.Request) {
 func (s *Server) revealRelic(writer http.ResponseWriter, request *http.Request) {
 	requestID := newRequestID()
 	secretPath := request.PathValue("path")
-	event := audit.Event{Time: time.Now().UTC(), RequestID: requestID, Path: secretPath}
+	field := request.URL.Query().Get("field")
+	event := audit.Event{Time: time.Now().UTC(), RequestID: requestID, Path: secretPath, Facet: field}
 
 	principal, err := s.identity.Resolve(request.Context(), request.RemoteAddr)
 	if err != nil {
@@ -107,7 +110,7 @@ func (s *Server) revealRelic(writer http.ResponseWriter, request *http.Request) 
 		return
 	}
 
-	filename, err := s.secretFilename(secretPath)
+	filename, err := s.relicFilename(secretPath)
 	if err != nil {
 		s.logger.Error("resolve Relic file", "request_id", requestID, "error", err)
 		writeError(writer, http.StatusNotFound, requestID, "Relic not found")
@@ -125,17 +128,42 @@ func (s *Server) revealRelic(writer http.ResponseWriter, request *http.Request) 
 	}
 	defer clear(encrypted)
 
-	value, err := s.decrypter.Value(request.Context(), encrypted)
+	plaintext, err := s.decrypter.Plain(request.Context(), encrypted)
 	if err != nil {
 		s.logger.Error("unseal Relic", "request_id", requestID, "error", err)
 		writeError(writer, http.StatusInternalServerError, requestID, "Relic unavailable")
 		return
 	}
+	defer clear(plaintext)
+	document, err := relic.ParsePlain(plaintext)
+	if err != nil {
+		s.logger.Error("parse Relic", "request_id", requestID, "error", err)
+		writeError(writer, http.StatusInternalServerError, requestID, "Relic unavailable")
+		return
+	}
+	definition, err := schema.Load(s.root, document.Schema)
+	if err == nil {
+		err = definition.ValidateDocument(document.Essence, document.Inscription)
+	}
+	if err != nil {
+		s.logger.Error("validate Relic schema", "request_id", requestID, "error", err)
+		writeError(writer, http.StatusInternalServerError, requestID, "Relic unavailable")
+		return
+	}
+	var value any = document.Essence
+	if field != "" {
+		selected, ok := document.Essence[field]
+		if !ok {
+			writeError(writer, http.StatusNotFound, requestID, "Essence facet not found")
+			return
+		}
+		value = selected
+	}
 	writeJSON(writer, http.StatusOK, map[string]any{"essence": value})
 }
 
-func (s *Server) secretFilename(secretPath string) (string, error) {
-	filename := filepath.Join(append([]string{s.root}, append(strings.Split(secretPath, "/"), "secret.yaml")...)...)
+func (s *Server) relicFilename(secretPath string) (string, error) {
+	filename := filepath.Join(append([]string{s.root}, append(strings.Split(secretPath, "/"), "relic.yaml")...)...)
 	resolved, err := filepath.EvalSymlinks(filename)
 	if err != nil {
 		return "", err
