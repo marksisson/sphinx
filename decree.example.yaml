@@ -4,7 +4,7 @@ rules:
     paths:
       - "**"
     tailscale:
-      # Replace this with the Seeker LoginName returned by `tailscale whois`.
+      # Replace this with the seeker LoginName returned by `tailscale whois`.
       logins:
         - "user@example.com"
       tags: []

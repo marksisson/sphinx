@@ -1,20 +1,20 @@
-# Sphinx Product Requirements Document
+# sphinx Product Requirements Document
 
 ## 1. Summary
 
-Sphinx is a small identity-aware secrets-management system. A Sphinx daemon guards a Tomb containing sealed Relics. A Seeker or Envoy answers a Riddle through Tailscale identity, Sphinx evaluates its Decrees, and every Judgment is recorded in the Chronicle.
+sphinx is a small identity-aware secrets-management system. A sphinx daemon guards a tomb containing relics. A seeker or envoy answers a riddle through Tailscale identity, sphinx evaluates its decrees, and every judgment is recorded in the chronicle.
 
-The first Temple is a Mac running Sphinx as a per-user LaunchAgent. Its age private identity is held in the macOS login Keychain. The daemon is reachable only through a private Tailscale network. Sphinx trusts the identity reported by Tailscale and does not depend on a specific tailnet identity provider.
+The first temple is a Mac running sphinx as a per-user LaunchAgent. Its guardian private key is held in the macOS login Keychain. The daemon is reachable only through a private Tailscale network. sphinx trusts the identity reported by Tailscale and does not depend on a specific tailnet identity provider.
 
-A Tomb may be either a local directory or a Git repository, including a private GitHub repository. Sphinx itself is developed publicly and contains no production Tomb, private identity, or secret material.
+A tomb may be either a local directory or a Git repository, including a private GitHub repository. sphinx itself is developed publicly and contains no production tomb, private key, or secret material.
 
 [`TERMINOLOGY.md`](TERMINOLOGY.md) is normative for product language. Conventional names remain appropriate for low-level cryptography and implementation details.
 
 ## 2. Product components
 
-### Sphinx client
+### sphinx client
 
-The `sphinx` command-line client submits Petitions to a Sphinx daemon, manages the local Keychain identity, and authors schema-driven Relics.
+The `sphinx` command-line client submits petitions to a sphinx daemon, manages the local private key in Keychain, and authors schema-driven relics.
 
 ```console
 sphinx guardian awaken
@@ -22,57 +22,53 @@ sphinx relic entomb --schema anthropic-api-key/v1 services/anthropic
 sphinx relic reveal --facet api_key services/anthropic --server https://sphinx.example.ts.net
 ```
 
-### Sphinx daemon
+### sphinx daemon
 
 The same executable runs the daemon:
 
 ```console
-sphinx protect \
-  --tomb github:example/secrets-tomb \
-  --tomb-ref main \
-  --tomb-path secrets \
-  --decree ./decree.yaml
+sphinx tomb update production
+sphinx tomb protect production
 ```
 
-The daemon materializes the Tomb, verifies caller identity, evaluates Decrees, unseals authorized Relics in memory, and appends Chronicle Entries.
+The daemon materializes the tomb, verifies caller identity, evaluates decrees, unseals authorized relics in memory, and appends chronicle entries.
 
-### Tomb
+### tomb
 
-A Tomb is a versioned collection of sealed Relics. It can be:
+A tomb is a versioned collection of sealed relics. It can be:
 
 - A local directory, such as `/Users/example/secrets`.
 - A GitHub repository shorthand, such as `github:owner/repository`.
 - A Git URL prefixed with `git+`, using HTTPS or SSH.
 
-A relative path inside a Git checkout may be selected with `--tomb-path`. A branch, tag, or commit may be selected with `--tomb-ref`.
+Operational configuration names each tomb's locator, lock, decree, chronicle, cache, listener, and guardian Keychain item. The locator carries any mutable tracking ref or checkout subdirectory. Remote tombs must be explicitly resolved and approved with `sphinx tomb update`; protection serves only the immutable commit recorded in the lock.
 
 ## 3. Goals
 
-- Remove GPG and GPG keyring handling from runtime access.
-- Encrypt and decrypt structured SOPS YAML using age entirely in process.
-- Keep the online Sphinx age identity in macOS Keychain, never in a Tomb, environment variable, command argument, or temporary file.
-- Wrap each Relic data key for exactly one online X25519 recipient and one user-chosen age-scrypt recovery passphrase.
-- Keep the SOPS encryption policy internal to Sphinx without a Tomb `.sops.yaml`.
-- Prompt for structured Essence and Inscription fields from versioned Tomb schemas.
-- Support local and remote Git Tombs without coupling Sphinx to one secret repository.
-- Identify and authenticate the Petitioner for every Relic Petition with Tailscale LocalAPI `WhoIs`.
-- Treat the identity-provider-agnostic Tailscale login as the v1 Seeker identity.
-- Authorize Relic paths using a small, reviewable Decree file.
-- Return only a Relic's Essence, not its complete decrypted document.
-- Record every allow or deny Judgment without recording Essence.
+- Encrypt and decrypt structured YAML entirely in process.
+- Keep the guardian private key in macOS Keychain, never in a tomb, environment variable, command argument, or temporary file.
+- Wrap each relic data key for exactly one guardian X25519 public key and one user-chosen recovery passphrase.
+- Keep the encryption policy internal to sphinx so a tomb cannot override it.
+- Prompt for structured essence and inscription fields from versioned tomb schemas.
+- Support local and remote Git tombs without coupling sphinx to one secret repository.
+- Identify and authenticate the petitioner for every relic petition with Tailscale LocalAPI `WhoIs`.
+- Treat the identity-provider-agnostic Tailscale login as the v1 seeker identity.
+- Authorize relic paths using a small, reviewable decree file.
+- Return only a relic's essence, not its complete decrypted document.
+- Record every allow or deny judgment without recording essence.
 - Bind to loopback and rely on Tailscale Serve for private HTTPS exposure.
-- Fail closed when Keychain, Git, Tailscale identity, Decree evaluation, SOPS integrity, or path validation fails.
+- Fail closed when Keychain, Git, Tailscale identity, decree evaluation, encrypted-document integrity, or path validation fails.
 
 ## 4. Non-goals for v1
 
 - Public internet exposure or Tailscale Funnel.
 - A web interface.
-- Creating, editing, or committing Relics through the network API; authoring commands operate on a local Tomb.
-- Automatically refreshing a remote Tomb while the daemon is running.
+- Creating, editing, or committing relics through the network API; authoring commands operate on a local tomb.
+- Automatically refreshing a remote tomb while the daemon is running.
 - Direct identity-provider OAuth, organization/group queries, or workload OIDC.
-- Serving multiple Tombs from one daemon process.
+- Serving multiple tombs from one daemon process.
 - High availability, multi-host consensus, or remote KMS.
-- Preventing an authorized caller from retaining Essence after revelation.
+- Preventing an authorized caller from retaining essence after revelation.
 
 ## 5. Security model
 
@@ -80,100 +76,103 @@ A relative path inside a Git checkout may be selected with `--tomb-path`. A bran
 
 - **Identity provider and Tailscale control plane:** establish the tailnet identity.
 - **tailscaled LocalAPI:** maps a connection to a trusted login, node, and tags.
-- **Decree:** maps trusted identities and node tags to Relic path patterns.
-- **macOS Keychain:** protects the online Sphinx age identity at rest.
-- **Recovery passphrase:** lets an operator recover Relics locally without the online identity.
-- **Git Tomb:** supplies versioned schemas and encrypted documents at a selected revision.
-- **SOPS:** authenticates and encrypts or decrypts each Relic document.
+- **decree:** maps trusted identities and node tags to relic path patterns.
+- **macOS Keychain:** protects the guardian private key at rest.
+- **Recovery passphrase:** lets an operator recover relics locally without the guardian private key.
+- **Git tomb:** supplies versioned schemas and encrypted documents at a selected revision.
+- **Encryption layer:** authenticates and encrypts or decrypts each relic document.
 
 ### Assumptions
 
 - Tailscale Serve has Funnel disabled and accepts only tailnet traffic.
 - The login session and login Keychain are unlocked when the LaunchAgent starts.
-- FileVault is enabled and the Temple is maintained as a trusted host.
-- Tomb writers are trusted secret administrators. A writer can replace encrypted Essence because the age recipient is public.
-- The Decree is controlled separately from the Tomb, preventing Tomb writers from granting themselves Passage.
-- A strong user-chosen recovery passphrase is retained offline and is never generated or stored by Sphinx.
+- FileVault is enabled and the temple is maintained as a trusted host.
+- tomb writers are trusted secret administrators. A writer can replace encrypted essence because the guardian public key is available.
+- The decree is controlled separately from the tomb, preventing tomb writers from granting themselves passage.
+- A strong user-chosen recovery passphrase is retained offline and is never generated or stored by sphinx.
 - Private Git credentials are available non-interactively to the LaunchAgent through SSH or a secure Git credential helper.
 
 ### Known limitations
 
-- The age identity and revealed Essence exist in process memory while needed.
-- Malware with the Temple user's privileges may call Sphinx or capture results.
+- The guardian private key and revealed essence exist in process memory while needed.
+- Malware with the temple user's privileges may call sphinx or capture results.
 - Static third-party credentials remain usable after retrieval until provider rotation.
-- Tailscale or identity-provider compromise may grant Passage allowed by Decrees.
-- Branches and tags are mutable. High-value deployments should use a pinned commit or establish signed-commit verification in a future release.
-- A remote Tomb is fetched at daemon startup; updates require a restart in v1.
+- Tailscale or identity-provider compromise may grant passage allowed by decrees.
+- Branches and tags are mutable update channels. `tomb update` records their resolved commit in a separate lock, but it does not yet authenticate the commit's signer.
+- A remote tomb is fetched at daemon startup at exactly its locked revision; approving and serving updates requires `tomb update` followed by a restart in v1.
 
 ## 6. Functional requirements
 
-### Guardian identity management
+### guardian key management
 
-- `sphinx guardian awaken` generates the Guardian's online X25519 age identity and stores it as a generic-password Keychain item.
-- `sphinx guardian cartouche` prints only the Guardian's public age recipient.
-- Initialization refuses to overwrite an existing identity.
-- The default Keychain service is `dev.marksisson.sphinx.age`; the account is `sphinx-v1`.
-- Recovery uses age's built-in scrypt recipient with a passphrase read from a terminal with echo disabled.
-- Sphinx never generates, stores, logs, or accepts the recovery passphrase through arguments or environment variables.
-- `.sphinx/tomb.yaml` binds a Tomb to one online recipient and contains only an encrypted recovery check, never the passphrase.
+- `sphinx guardian awaken` generates the guardian's X25519 private key and stores it as a generic-password Keychain item.
+- `sphinx guardian behold` prints only the guardian's public key.
+- Initialization refuses to overwrite an existing private key.
+- The default Keychain service is `dev.marksisson.sphinx.keys`; the account is `sphinx-v1`.
+- Recovery uses a passphrase read from a terminal with echo disabled.
+- sphinx never generates, stores, logs, or accepts the recovery passphrase through arguments or environment variables.
+- `.sphinx/tomb.yaml` binds a tomb to one guardian public key and contains only an encrypted recovery check, never the passphrase.
 
-### Tomb materialization
+### tomb materialization
 
-- `--tomb PATH` opens a local Tomb.
-- `--tomb github:OWNER/REPOSITORY` clones or updates a GitHub Tomb over HTTPS.
-- `--tomb git+https://…` and `--tomb git+ssh://…` clone or update generic Git Tombs.
-- `--tomb-ref REF` selects a validated branch, tag, or commit; remote `HEAD` is the default.
-- `--tomb-path PATH` selects a relative directory inside the checkout; `.` is the default.
-- Remote Tombs are cached below the user's cache directory with mode `0700`.
-- Git runs non-interactively and a credential must never be embedded in a Tomb URL.
-- Checkout paths and symlinks must not escape the cached repository.
-- Sphinx logs the resolved commit but never logs credentials or Essence.
+- The operational configuration supports multiple named tombs and one default tomb.
+- A local filesystem tomb locator opens a local tomb without a revision lock.
+- `github:OWNER/REPOSITORY[/REF]` selects GitHub, including slash-containing refs such as `pull/123/head`.
+- `git+https://…` and `git+ssh://…` select generic Git repositories.
+- `ref`, `rev`, and `dir` selectors are encoded only in the tomb locator; separate configuration fields are rejected.
+- Generic HTTP locators, tarballs, embedded credentials, unknown query parameters, unsafe refs, and escaping directories are rejected.
+- `sphinx tomb update` materializes and validates a candidate before atomically writing a mode-`0600` lock with the full resolved commit.
+- `sphinx tomb protect` requires a matching lock and checks out exactly its full commit; it never advances a mutable ref.
+- Candidate and immutable revision checkouts are separate so an update cannot mutate a running locked tomb.
+- Remote tombs are cached below the user's cache directory with mode `0700`.
+- Git runs non-interactively, and checkout paths and symlinks must not escape the cached repository.
+- sphinx logs the resolved commit but never logs credentials or essence.
 
-### Schemas and Relic authoring
+### Schemas and relic authoring
 
 - Schemas are declarative YAML documents below `.sphinx/schemas/` and cannot execute commands or templates.
-- A schema versions and defines typed Essence and Inscription fields.
+- A schema versions and defines typed essence and inscription fields.
 - `sphinx relic entomb` creates `PATH/relic.yaml`, refuses overwrite, and requires the recovery passphrase.
-- `sphinx relic reseal` replaces the Essence, verifies the recovery passphrase, and rotates the SOPS data key.
-- `sphinx relic inscribe` updates only non-secret metadata while retaining the data key and both recipient envelopes.
-- `sphinx relic inspect` displays only the schema and Inscription.
-- Sphinx always encrypts the complete `essence` branch and does not permit schemas to alter encryption policy.
+- `sphinx relic reseal` replaces the essence, verifies the recovery passphrase, and rotates the relic data key.
+- `sphinx relic inscribe` updates only non-secret metadata while retaining the data key and both key wrappings.
+- `sphinx relic inspect` displays only the schema and inscription.
+- sphinx always encrypts the complete `essence` branch and does not permit schemas to alter encryption policy.
 - Writes use a mode-`0600` temporary file and atomic rename.
 
-### Relic revelation
+### relic revelation
 
 - `GET /v1/relics/{path}` reads `${TOMB_ROOT}/{path}/relic.yaml`.
 - Paths contain only slash-separated `[A-Za-z0-9._-]+` segments.
 - Absolute paths, empty segments, symlink escapes, `.` and `..` are rejected.
-- The SOPS MAC is verified before Essence is returned.
-- Only age encryption is serviced; there is no GPG fallback.
+- The MAC is verified before essence is returned.
+- Only sphinx's current encryption format is serviced.
 - The response is JSON containing `essence`.
-- `?field=NAME` and CLI `--facet NAME` return one schema-defined Essence field.
-- `sphinx relic reveal --recovery` decrypts a local Tomb using a securely prompted passphrase and does not contact the daemon.
+- `?field=NAME` and CLI `--facet NAME` return one schema-defined essence field.
+- `sphinx relic reveal --recovery` decrypts a local tomb using a securely prompted passphrase and does not contact the daemon.
 
-### Riddle and Judgment
+### riddle and judgment
 
 - Every `/v1/relics` request is resolved through Tailscale LocalAPI `WhoIs` using the actual remote address.
-- Decrees may match Tailscale login names and node tags.
-- Passage is granted when one Decree matches both identity and Relic path.
-- No matching Decree means refusal.
-- `/healthz` reveals no Tomb, identity, or Relic information.
+- decrees may match Tailscale login names and node tags.
+- passage is granted when one decree matches both identity and relic path.
+- No matching decree means refusal.
+- `/healthz` reveals no tomb, identity, or relic information.
 
-### Chronicle
+### chronicle
 
-Each Petition records:
+Each petition records:
 
 - UTC timestamp
 - request ID
 - login when available
 - node and tags when available
-- requested Relic path and optional Facet
-- allow or deny Judgment
+- requested relic path and optional facet
+- allow or deny judgment
 - non-sensitive reason
 
-Chronicle Entries never contain Essence, decrypted documents, age identities, Git credentials, or authorization headers.
+chronicle entries never contain essence, decrypted documents, guardian private keys, Git credentials, or authorization headers.
 
-## 7. Decree format
+## 7. decree format
 
 ```yaml
 version: 1
@@ -193,48 +192,37 @@ Path patterns support `*` within one segment and `**` across segments. A rule wi
 
 - Default listen address: `127.0.0.1:8787`.
 - Default request timeout: 15 seconds.
-- Maximum encrypted Relic size: 1 MiB.
+- Maximum encrypted relic size: 1 MiB.
 - Responses set `Cache-Control: no-store`.
 - HTTP server timeouts are configured.
-- Chronicle files and locally authored `relic.yaml` files are created with mode `0600`.
-- Tomb caches and newly created Relic directories are created with mode `0700`.
+- chronicle files and locally authored `relic.yaml` files are created with mode `0600`.
+- tomb caches and newly created relic directories are created with mode `0700`.
 - Shutdown is graceful on `SIGINT` or `SIGTERM`.
 - The daemon runs as a LaunchAgent, not root or a system daemon.
 
-## 9. Migration from PGP to age
-
-1. Run `sphinx guardian awaken` and record the Cartouche (online public age recipient).
-2. Choose and securely retain a strong recovery passphrase; Sphinx does not generate one.
-3. Define the destination Relic schemas below `.sphinx/schemas/`.
-4. Decrypt each existing PGP Relic in a controlled environment and pass its values directly to `sphinx relic entomb` without a plaintext temporary file.
-5. Verify both online and `--recovery` revelation before removing the PGP recipient.
-6. Archive the PGP private key for a defined rollback period, then destroy it.
-
-Migration is never automatic because it requires the existing PGP private key, schema selection, and an explicit recovery decision.
-
-## 10. Future work
+## 9. Future work
 
 - `sphinx relic exec` with stdin or file-descriptor delivery.
-- Periodic Tomb refresh with atomic revision swaps.
-- Signed-commit or allow-listed-commit verification.
-- Multiple named Tombs per daemon.
-- Direct identity-provider OAuth and short-lived Sphinx sessions.
-- Workload OIDC for Envoys.
-- Identity-provider organization/group Decrees.
+- Periodic tomb refresh with atomic revision swaps.
+- Signed-commit signer verification for tomb updates.
+- Multiple named tombs per daemon.
+- Direct identity-provider OAuth and short-lived sphinx sessions.
+- Workload OIDC for envoys.
+- Identity-provider organization/group decrees.
 - Signed/notarized binary-bound Keychain access controls.
-- Hardware-backed recovery through an age plugin.
-- Tamper-evident remote Chronicle sink.
+- Hardware-backed recovery through a cryptographic plugin.
+- Tamper-evident remote chronicle sink.
 
-## 11. Acceptance criteria
+## 10. Acceptance criteria
 
-- Sphinx is maintained in a public repository containing no operational Tomb or private identity.
-- No Sphinx code invokes GPG or requires `SOPS_AGE_KEY_FILE`.
-- Keychain identity material is used directly in memory without an identity file.
-- New Relics contain one online age wrapping and one age-scrypt recovery wrapping.
-- Tombs require no `.sops.yaml`; encryption selection cannot be changed by a schema.
-- Local, GitHub, HTTPS Git, and SSH Git Tomb references are parsed safely.
-- A remote Tomb is checked out at a known commit in a private cache.
-- An authorized Tailscale identity can reveal an age-encrypted Relic.
-- Unauthorized identities, malformed paths, modified ciphertext, PGP-only files, unsafe Git references, and checkout escapes fail closed.
-- Tests cover Tomb parsing/materialization and configuration, schemas, path validation, glob matching, authorization, and online/recovery SOPS age/MAC verification.
-- `nix flake check` builds and tests Sphinx on the current Darwin system.
+- sphinx is maintained in a public repository containing no operational tomb or private key.
+- sphinx does not load private keys from environment variables.
+- Keychain private-key material is used directly in memory without a private-key file.
+- New relics contain one guardian public-key wrapping and one passphrase recovery wrapping.
+- Encryption selection cannot be changed by a schema or tomb configuration.
+- Local, GitHub, HTTPS Git, and SSH Git tomb references are parsed safely.
+- A remote tomb update is explicitly locked, and protection checks out exactly the approved commit in a private cache.
+- An authorized Tailscale identity can reveal an encrypted relic.
+- Unauthorized identities, malformed paths, modified ciphertext, unsupported encryption formats, unsafe Git references, and checkout escapes fail closed.
+- Tests cover tomb parsing/materialization and configuration, schemas, path validation, glob matching, authorization, and guardian-key/passphrase decryption with MAC verification.
+- `nix flake check` builds and tests sphinx on the current Darwin system.

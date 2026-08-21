@@ -1,12 +1,12 @@
-# Sphinx Metaphor and Product Terminology
+# sphinx Metaphor and Product Terminology
 
 ## Concept
 
-**Sphinx** is the guardian of protected knowledge.
+**sphinx** is the guardian of protected knowledge.
 
 The product uses an Egyptian / mythological metaphor to make secrets-management concepts memorable while preserving a coherent mental model:
 
-> A **Sphinx** guards **Tombs**. Tombs contain **Chambers**. Chambers hold **Relics**. Relics contain sealed secret material. **Seekers** and **Envoys** approach the Sphinx and answer a **Riddle** to prove their identity. **Decrees** determine whether they are granted **Passage**. Every decision is recorded in the **Chronicle**.
+> A **sphinx** guards **tombs**. tombs contain **chambers**. chambers hold **relics**. relics contain sealed secret material. **seekers** and **envoys** approach the sphinx and answer a **riddle** to prove their identity. **decrees** determine whether they are granted **passage**. Every decision is recorded in the **chronicle**.
 
 The metaphor should be strongest at the product and workflow layers. Low-level cryptographic primitives should generally retain conventional names where precision matters.
 
@@ -16,15 +16,15 @@ The metaphor should be strongest at the product and workflow layers. Low-level c
 
 | Component | Canonical name | Meaning |
 |---|---|---|
-| Product and project | **Sphinx** | The complete secrets-management system |
-| Command-line client | **Sphinx client** / `sphinx` | Sends Petitions and administers local Sphinx configuration |
-| Server process | **Sphinx daemon** | Authenticates identities, evaluates Decrees, and reveals authorized Relics |
-| Server host | **Temple** | The infrastructure on which a Sphinx daemon runs |
-| Local directory or Git repository | **Tomb** | A versioned collection of sealed Relics guarded by Sphinx |
+| Product and project | **sphinx** | The complete secrets-management system |
+| Command-line client | **sphinx client** / `sphinx` | Sends petitions and administers local sphinx configuration |
+| Server process | **sphinx daemon** | Authenticates identities, evaluates decrees, and reveals authorized relics |
+| Server host | **temple** | The infrastructure on which a sphinx daemon runs |
+| Local directory or Git repository | **tomb** | A versioned collection of sealed relics guarded by sphinx |
 
-The executable is named `sphinx` and contains both client and daemon commands. **Seeker** and **Envoy** name authenticated identities, not software components: a Seeker may use the Sphinx client, while an Envoy may call the Sphinx API directly.
+The executable is named `sphinx` and contains both client and daemon commands. **seeker** and **envoy** name authenticated identities, not software components: a seeker may use the sphinx client, while an envoy may call the sphinx API directly.
 
-A Tomb may be a local directory or a Git repository hosted by GitHub or another Git service. Git transport and repository location do not change its resource model.
+A tomb may be a local directory or a Git repository hosted by GitHub or another Git service. Git transport and repository location do not change its resource model.
 
 ---
 
@@ -32,26 +32,27 @@ A Tomb may be a local directory or a Git repository hosted by GitHub or another 
 
 | Product concept | Term | Meaning |
 |---|---|---|
-| Secrets-management system / CLI / service | **Sphinx** | The guardian that controls access to protected knowledge |
-| Secret store / vault / Git repository | **Tomb** | A versioned container for protected secrets |
-| Sub-namespace / logical grouping | **Chamber** | A subdivision within a Tomb |
-| Individual secret | **Relic** | A valuable protected item stored within a Chamber |
-| Secret metadata | **Inscription** | Non-secret descriptive information attached to a Relic |
-| Secret payload / value | **Essence** | The protected contents of a Relic |
-| Structured Essence field | **Facet** | One named value within a structured Essence |
-| Online cryptographic identity | **Guardian** | The Keychain-backed private age identity used by the Sphinx daemon |
-| Public age recipient | **Cartouche** | The Guardian's public encryption recipient |
-| Operation request | **Petition** | A request submitted to the Sphinx |
-| Generic or unauthenticated caller | **Petitioner** | A person or workload submitting a Petition |
-| Authentication challenge | **Riddle** | A challenge posed by the Sphinx to verify identity |
-| Authenticated human identity | **Seeker** | A person whose identity has been established |
-| Service identity / workload | **Envoy** | A machine or service acting as an authenticated principal |
-| Authorization policy | **Decree** | A rule describing who may perform which actions |
-| Granted authorization | **Passage** | Permission to access or act on protected resources |
-| Encryption / lock operation | **Seal** | Protect a Tomb or Relic from access |
-| Decryption / unlock operation | **Unseal** | Make protected contents accessible |
-| Audit log | **Chronicle** | The immutable historical record of actions and judgments |
-| Audit event | **Entry** | A single record in the Chronicle |
+| Secrets-management system / CLI / service | **sphinx** | The guardian that controls access to protected knowledge |
+| Secret store / vault / Git repository | **tomb** | A versioned container for protected secrets |
+| Sub-namespace / logical grouping | **chamber** | A subdivision within a tomb |
+| Individual secret | **relic** | A valuable protected item stored within a chamber |
+| Secret metadata | **inscription** | Non-secret descriptive information attached to a relic |
+| Secret payload / value | **essence** | The protected contents of a relic |
+| Structured essence field | **facet** | One named value within a structured essence |
+| Cryptographic key holder | **guardian** | The keeper of the Keychain-backed private key used by the sphinx daemon |
+| Private key | **private key** | The guardian's safeguarded private key |
+| Public key | **public key** | The guardian's public key used to seal relics |
+| Operation request | **petition** | A request submitted to the sphinx |
+| Generic or unauthenticated caller | **petitioner** | A person or workload submitting a petition |
+| Authentication challenge | **riddle** | A challenge posed by the sphinx to verify identity |
+| Authenticated human identity | **seeker** | A person whose identity has been established |
+| Service identity / workload | **envoy** | A machine or service acting as an authenticated principal |
+| Authorization policy | **decree** | A rule describing who may perform which actions |
+| Granted authorization | **passage** | Permission to access or act on protected resources |
+| Encryption / lock operation | **seal** | protect a tomb or relic from access |
+| Decryption / unlock operation | **unseal** | Make protected contents accessible |
+| Audit log | **chronicle** | The immutable historical record of actions and judgments |
+| Audit event | **entry** | A single record in the chronicle |
 
 ---
 
@@ -60,16 +61,16 @@ A Tomb may be a local directory or a Git repository hosted by GitHub or another 
 The primary resource hierarchy is:
 
 ```text
-Sphinx
-└── Tomb: production-secrets.git
-    ├── Chamber: database
-    │   ├── Relic: postgres-password
-    │   └── Relic: replication-key
-    └── Chamber: stripe
-        └── Relic: api-key
+sphinx
+└── tomb: production-secrets.git
+    ├── chamber: database
+    │   ├── relic: postgres-password
+    │   └── relic: replication-key
+    └── chamber: stripe
+        └── relic: api-key
 ```
 
-A canonical path within that Tomb might therefore look like:
+A canonical path within that tomb might therefore look like:
 
 ```text
 database/postgres-password
@@ -77,39 +78,39 @@ database/postgres-password
 
 where:
 
-- `production-secrets.git` is the **Tomb**
-- `database` is the **Chamber**
-- `postgres-password` is the **Relic**
+- `production-secrets.git` is the **tomb**
+- `database` is the **chamber**
+- `postgres-password` is the **relic**
 
 ---
 
-## Authentication Model: The Riddle
+## Authentication Model: The riddle
 
-The **Riddle** represents the authentication challenge.
+The **riddle** represents the authentication challenge.
 
-A **Petitioner** is the generic caller submitting a **Petition**. After the Riddle establishes identity, the Petitioner is recognized as a human Seeker or workload Envoy.
+A **petitioner** is the generic caller submitting a **petition**. After the riddle establishes identity, the petitioner is recognized as a human seeker or workload envoy.
 
-This mapping is intentionally close to the Sphinx myth: the Sphinx does not reveal protected knowledge merely because someone asks. The requester must first prove that they are entitled to proceed.
+This mapping is intentionally close to the sphinx myth: the sphinx does not reveal protected knowledge merely because someone asks. The requester must first prove that they are entitled to proceed.
 
 Conceptually:
 
 ```text
-  Petitioner
+  petitioner
       |
-submits Petition
+submits petition
       |
       v
-   Sphinx
+   sphinx
       |
-   Riddle
+   riddle
       |
  identity proof
       |
       v
-Seeker / Envoy
+seeker / envoy
 ```
 
-A Riddle may correspond internally to one or more real authentication mechanisms, including:
+A riddle may correspond internally to one or more real authentication mechanisms, including:
 
 - OIDC or workload identity
 - signed challenges
@@ -123,9 +124,9 @@ The metaphor describes the interaction, not the cryptographic implementation.
 
 ### Design principle
 
-**A Riddle is not a secret.**
+**A riddle is not a secret.**
 
-A Riddle is the mechanism through which a caller proves identity. The protected secret remains a Relic inside a Tomb.
+A riddle is the mechanism through which a caller proves identity. The protected secret remains a relic inside a tomb.
 
 This distinction avoids conflating authentication material with the secret being protected.
 
@@ -133,35 +134,35 @@ This distinction avoids conflating authentication material with the secret being
 
 ## Authorization Model
 
-After a Riddle has been answered successfully, the Sphinx evaluates applicable **Decrees**.
+After a riddle has been answered successfully, the sphinx evaluates applicable **decrees**.
 
-A Decree describes what an authenticated Seeker or Envoy may do.
+A decree describes what an authenticated seeker or envoy may do.
 
 Example conceptual policy:
 
 ```text
-Decree:
-  Envoy: payments-api
-  Passage: production/stripe
+decree:
+  envoy: payments-api
+  passage: production/stripe
   Privilege: reveal
 ```
 
-This means that the `payments-api` Envoy may reveal Relics within the `production/stripe` Chamber.
+This means that the `payments-api` envoy may reveal relics within the `production/stripe` chamber.
 
 The authorization flow is:
 
 ```text
-Answer Riddle
+Answer riddle
      |
      v
 Authenticated identity
      |
      v
-Evaluate Decrees
+Evaluate decrees
      |
-     +---- deny ----> No Passage
+     +---- deny ----> No passage
      |
-     +---- allow ---> Passage granted
+     +---- allow ---> passage granted
 ```
 
 ---
@@ -171,12 +172,13 @@ Evaluate Decrees
 The metaphor can extend naturally into CLI and API operations.
 
 ```bash
-sphinx protect --tomb github:example/production-secrets --tomb-path secrets
+sphinx tomb update production
+sphinx tomb protect production
 sphinx relic reveal database/postgres-password
 
-# Guardian identity operations:
+# guardian key operations:
 sphinx guardian awaken
-sphinx guardian cartouche
+sphinx guardian behold
 
 # Administrative operations:
 sphinx relic entomb database/postgres-password
@@ -184,6 +186,9 @@ sphinx relic inspect database/postgres-password
 sphinx relic inscribe database/postgres-password
 sphinx relic reseal database/postgres-password
 sphinx relic reveal database/postgres-password --facet password
+
+# tomb lifecycle operations:
+sphinx tomb status production
 
 # Possible future operations:
 sphinx tomb seal
@@ -194,21 +199,21 @@ Possible verbs:
 
 | Operation | Preferred term |
 |---|---|
-| Initialize the Guardian identity | **Awaken** |
-| Print the public age recipient | **Cartouche** |
-| Run the daemon for a Tomb | **Protect** |
-| Create/store a secret | **Entomb** |
-| Update secret metadata | **Inscribe** |
-| Replace secret payload | **Reseal** |
-| Retrieve a secret | **Reveal** |
-| Select a structured value | **Facet** |
-| Encrypt / lock | **Seal** |
-| Decrypt / unlock | **Unseal** |
-| Grant access | **Grant Passage** |
-| Remove access | **Revoke Passage** |
-| Authenticate | **Answer Riddle** / **Solve Riddle** |
-| Evaluate authorization | **Judgment** |
-| Record audit event | **Chronicle Entry** |
+| Initialize the guardian's private key | **awaken** |
+| Print the guardian's public key | **behold** |
+| Run the daemon for a tomb | **protect** |
+| Create/store a secret | **entomb** |
+| Update secret metadata | **inscribe** |
+| Replace secret payload | **reseal** |
+| Retrieve a secret | **reveal** |
+| Select a structured value | **facet** |
+| Encrypt / lock | **seal** |
+| Decrypt / unlock | **unseal** |
+| Grant access | **Grant passage** |
+| Remove access | **Revoke passage** |
+| Authenticate | **Answer riddle** / **Solve riddle** |
+| Evaluate authorization | **judgment** |
+| Record audit event | **chronicle entry** |
 
 For frequently used commands, clarity should take precedence over novelty. For example, `reveal` is preferable to `exhume`, even though the latter is more literal to the tomb metaphor.
 
@@ -220,17 +225,17 @@ The following terms may be useful as the product evolves.
 
 | Technical concept | Candidate term | Notes |
 |---|---|---|
-| Authorization decision | **Judgment** | The Sphinx decides whether Passage is permitted |
+| Authorization decision | **judgment** | The sphinx decides whether passage is permitted |
 | Secret reference / pointer | **Glyph** | A symbolic reference to a protected object |
 | Temporary credential | **Token** | Already fits both security and the metaphor |
-| Temporary access | **Passage** | Naturally supports time-bounded access |
+| Temporary access | **passage** | Naturally supports time-bounded access |
 | Expiration / TTL | **Hourglass** | Best suited to UI language rather than core API fields |
 | Recovery mechanism | **Scarab** | Protective symbolism; could represent recovery credentials |
-| Backup store | **Catacomb** | A secondary or archival collection of protected Tombs |
-| Cluster / collection of Tombs | **Necropolis** | Strong metaphor, potentially useful for infrastructure grouping |
+| Backup store | **catacomb** | A secondary or archival collection of protected tombs |
+| Cluster / collection of tombs | **necropolis** | Strong metaphor, potentially useful for infrastructure grouping |
 | Region / deployment boundary | **Kingdom** | Could represent a geographic or administrative boundary |
 | Environment | **Realm** | Example: development, staging, production |
-| Resource path | **Passage** | May conflict with authorization; use carefully |
+| Resource path | **passage** | May conflict with authorization; use carefully |
 | Version history | **Strata** | Layers of historical state |
 | Key generation / rotation era | **Dynasty** | Possible metaphor for cryptographic generations |
 
@@ -262,18 +267,18 @@ The metaphor is intended to improve the **product mental model**, not obscure th
 
 ## Product Language Principles
 
-1. **The metaphor must clarify, not hide.** A new user should be able to infer roughly what a Tomb, Chamber, Relic, and Riddle mean.
+1. **The metaphor must clarify, not hide.** A new user should be able to infer roughly what a tomb, chamber, relic, and riddle mean.
 2. **Use metaphor for nouns more aggressively than for verbs.** Resource names are encountered repeatedly and benefit from distinctiveness; operational verbs should remain easy to understand.
 3. **Prefer mythologically coherent terms over generic Egyptian imagery.** Terms should map to a real conceptual role rather than existing only for flavor.
-4. **Keep security-critical documentation bilingual where useful.** For example: “Riddle (authentication challenge)” or “Decree (authorization policy)” on first use.
+4. **Keep security-critical documentation bilingual where useful.** For example: “riddle (authentication challenge)” or “decree (authorization policy)” on first use.
 5. **Do not rename cryptographic primitives where doing so would reduce precision.**
-6. **The Sphinx is the active guardian.** Tombs store; the Sphinx authenticates, judges, grants Passage, and records the result.
-7. **The Riddle proves identity; it does not contain the secret.**
+6. **The sphinx is the active guardian.** tombs store; the sphinx authenticates, judges, grants passage, and records the result.
+7. **The riddle proves identity; it does not contain the secret.**
 
 ---
 
 ## Canonical Product Narrative
 
-> The **Sphinx** guards protected knowledge stored in **Tombs**. Each Tomb contains **Chambers**, and each Chamber holds **Relics** containing sealed secret material. A **Seeker** or **Envoy** approaching the Sphinx must answer a **Riddle** to prove its identity. The Sphinx then evaluates its **Decrees** and decides whether to grant **Passage**. Every authentication attempt, authorization decision, and secret operation is recorded in the **Chronicle**.
+> The **sphinx** guards protected knowledge stored in **tombs**. Each tomb contains **chambers**, and each chamber holds **relics** containing sealed secret material. A **seeker** or **envoy** approaching the sphinx must answer a **riddle** to prove its identity. The sphinx then evaluates its **decrees** and decides whether to grant **passage**. Every authentication attempt, authorization decision, and secret operation is recorded in the **chronicle**.
 
 This narrative should serve as the anchor for naming new concepts as the product model expands.

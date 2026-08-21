@@ -1,9 +1,9 @@
-# Relic Schemas
+# relic Schemas
 
-A Tomb stores versioned, declarative schema definitions below `.sphinx/schemas/`.
+A tomb stores versioned, declarative schema definitions below `.sphinx/schemas/`.
 Schemas drive secure prompts, validation, help, and shell completion. They never
-execute commands or templates and cannot change Sphinx's encryption policy or a
-Decree.
+execute commands or templates and cannot change sphinx's encryption policy or a
+decree.
 
 ## Definition
 
@@ -37,13 +37,13 @@ anthropic-api-key/v1
 ```
 
 Supported field types are `string`, `integer`, `boolean`, and `enum`. Field
-names are single segments and must be unique across Essence and Inscription.
+names are single segments and must be unique across essence and inscription.
 Schema changes should use a new version rather than changing the meaning of an
 existing version.
 
-## Relic format
+## relic format
 
-Each Relic is stored at `PATH/relic.yaml`:
+Each relic is stored at `PATH/relic.yaml`:
 
 ```yaml
 format: 1
@@ -54,32 +54,21 @@ inscription:
 essence:
   api_key: ENC[AES256_GCM,...]
 recovery:
-  type: age-scrypt-v1
-  encrypted_data_key: |
-    -----BEGIN AGE ENCRYPTED FILE-----
-    ...
-    -----END AGE ENCRYPTED FILE-----
-sops:
-  age:
-    - recipient: age1...
-      enc: |
-        -----BEGIN AGE ENCRYPTED FILE-----
-        ...
-        -----END AGE ENCRYPTED FILE-----
-  encrypted_regex: ^essence$
-  mac: ENC[...]
-  ...
+  type: passphrase-v1
+  encrypted_data_key: <encrypted>
+# sphinx-managed public-key wrapping and MAC metadata follows
 ```
 
-Sphinx always encrypts the complete `essence` branch. `format`, `schema`,
+sphinx always encrypts the complete `essence` branch. `format`, `schema`,
 `inscription`, and the recovery envelope remain repository-visible but are
-covered by the SOPS MAC. The `sops.age` entry wraps the data key for the one
-online X25519 identity in macOS Keychain. The separate recovery envelope wraps
-the same data key using age's native scrypt recipient.
+covered by the MAC. The sphinx-managed encryption metadata wraps the data key
+for the guardian public key; the corresponding private key is stored in macOS
+Keychain. The separate recovery envelope wraps the same data key using the
+recovery passphrase.
 
-A Tomb has no `.sops.yaml`. Its `.sphinx/tomb.yaml` binds all Relics to the same
-online recipient and recovery passphrase mechanism. It contains an encrypted
-passphrase check but never the passphrase.
+A tomb's `.sphinx/tomb.yaml` binds all relics to the same guardian public key
+and recovery passphrase mechanism. It contains an encrypted passphrase check
+but never the passphrase.
 
 ## Commands
 
@@ -92,12 +81,12 @@ sphinx relic reveal services/anthropic --facet api_key
 sphinx relic reveal --recovery --tomb ./secrets services/anthropic --facet api_key
 ```
 
-`entomb` refuses to overwrite an existing Relic. `reseal` requires an existing
-Relic and rotates its SOPS data key. Both require the Tomb recovery passphrase.
+`entomb` refuses to overwrite an existing relic. `reseal` requires an existing
+relic and rotates its data key. Both require the tomb recovery passphrase.
 `inscribe` changes only repository-visible metadata and retains the existing
 data key and recovery envelope.
 
-Essence prompts disable terminal echo. Recovery passphrases are accepted only
+essence prompts disable terminal echo. Recovery passphrases are accepted only
 from a terminal, never from an argument, environment variable, JSON input, or
 standard input.
 
@@ -125,7 +114,7 @@ sphinx relic entomb \
 }
 ```
 
-A JSON file contains plaintext Essence and must be handled accordingly.
+A JSON file contains plaintext essence and must be handled accordingly.
 `--stdin` avoids a persistent input file. Neither form accepts the recovery
 passphrase.
 
@@ -137,5 +126,5 @@ Generate completion for the active shell, for example:
 source <(sphinx completion zsh)
 ```
 
-Completion discovers schema references, existing Relic paths, and valid Facets
-from the selected Relic's schema.
+Completion discovers schema references, existing relic paths, and valid facets
+from the selected relic's schema.
