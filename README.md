@@ -13,7 +13,7 @@ This is an early MVP for a Mac temple on a private Tailscale network. It support
 - macOS Keychain storage for sphinx's guardian private key
 - schema-driven `entomb`, `inspect`, `inscribe`, `reseal`, and `reveal` commands
 - authenticated in-process encryption and decryption
-- Keychain-backed guardian-key decryption plus user-chosen passphrase recovery
+- Keychain-backed guardian-key decryption plus a user-chosen recovery incantation (passphrase)
 - schema- and relic-aware shell completion
 - local directories and explicitly locked remote Git repositories as tombs
 - tomb locators with GitHub and Git branch, tag, commit, pull-request, and subdirectory selectors
@@ -44,7 +44,7 @@ nix run . -- guardian awaken
 nix run . -- guardian behold
 ```
 
-`guardian awaken` generates the guardian's private key, stores it in the login Keychain, and prints its public key. `guardian behold` prints the public key again. sphinx never generates or stores the tomb recovery passphrase; the user supplies it securely when entombing or resealing a relic.
+`guardian awaken` generates the guardian's private key, stores it in the login Keychain, and prints its public key. `guardian behold` prints the public key again. sphinx never generates or stores the tomb recovery incantation; the user supplies it securely when entombing or resealing a relic.
 
 ## Write a decree
 
@@ -84,7 +84,7 @@ nix run . -- relic entomb \
   services/anthropic
 ```
 
-sphinx securely prompts for essence fields and for a user-chosen recovery passphrase. The first `entomb` creates `.sphinx/tomb.yaml`, which binds the tomb to exactly one guardian public key and one passphrase recovery mechanism. Every relic is stored as `PATH/relic.yaml`.
+sphinx securely prompts for essence fields and for a user-chosen recovery incantation. The first `entomb` creates `.sphinx/tomb.yaml`, which binds the tomb to exactly one guardian public key and one passphrase recovery mechanism. Every relic is stored as `PATH/relic.yaml`.
 
 Administrative operations are:
 
@@ -94,7 +94,7 @@ sphinx relic inscribe services/anthropic
 sphinx relic reseal services/anthropic
 ```
 
-`inspect` shows only the schema and non-secret inscription. `inscribe` retains the essence and recovery wrapping. `reseal` replaces the essence, verifies the recovery passphrase, and rotates the relic data key.
+`inspect` shows only the schema and non-secret inscription. `inscribe` retains the essence and recovery wrapping. `reseal` replaces the essence, verifies the recovery incantation, and rotates the relic data key.
 
 ## Configure and protect a tomb
 
@@ -175,7 +175,7 @@ reveal one structured essence facet with `--facet`:
 nix run . -- relic reveal --facet api_key services/anthropic
 ```
 
-Recovery bypasses the daemon and decrypts a local tomb after a secure passphrase prompt:
+Recovery bypasses the daemon and decrypts a local tomb after a secure recovery-incantation prompt:
 
 ```console
 nix run . -- relic reveal \

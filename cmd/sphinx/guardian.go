@@ -60,7 +60,7 @@ func newGuardianAwakenCommand() *cobra.Command {
 				return err
 			}
 			fmt.Println(publicKey)
-			fmt.Fprintln(os.Stderr, "guardian awakened and private key stored in the macOS Keychain. Choose and securely retain a recovery passphrase before entombing a relic.")
+			fmt.Fprintln(os.Stderr, "guardian awakened and private key stored in the macOS Keychain. Choose and securely retain a recovery incantation (passphrase) before entombing a relic.")
 			return nil
 		},
 	}

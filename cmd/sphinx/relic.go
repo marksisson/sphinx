@@ -57,8 +57,8 @@ func newEntombCommand() *cobra.Command {
 		Use:   "entomb PATH",
 		Short: "Create a new relic with inscription and encrypted essence",
 		Long: `Create a new relic from a tomb schema. essence fields are prompted
-without terminal echo. The recovery passphrase is supplied securely and is
-never generated or stored by sphinx.`,
+without terminal echo. The recovery incantation (passphrase) is supplied
+securely and is never generated or stored by sphinx.`,
 		Args: cobra.ExactArgs(1),
 		RunE: func(_ *cobra.Command, args []string) error {
 			return runEntomb(options, args[0])
@@ -75,7 +75,8 @@ func newResealCommand() *cobra.Command {
 		Use:   "reseal PATH",
 		Short: "Replace and re-encrypt a relic's essence",
 		Long: `Replace the structured essence of an existing relic. Resealing
-rotates the relic encryption key and requires the existing recovery passphrase.`,
+rotates the relic encryption key and requires the existing recovery incantation
+(passphrase).`,
 		Args: cobra.ExactArgs(1),
 		RunE: func(_ *cobra.Command, args []string) error {
 			return runReseal(options, args[0])
@@ -93,7 +94,7 @@ func newInscribeCommand() *cobra.Command {
 		Short: "Update a relic's non-secret inscription",
 		Long: `Update repository-visible metadata defined by the relic's schema.
 sphinx uses its guardian private key from Keychain to recompute the relic integrity check;
-the recovery passphrase is not required.`,
+the recovery incantation (passphrase) is not required.`,
 		Args: cobra.ExactArgs(1),
 		RunE: func(_ *cobra.Command, args []string) error {
 			return runInscribe(options, args[0])
@@ -170,8 +171,8 @@ func newRevealCommand() *cobra.Command {
 		Use:   "reveal PATH",
 		Short: "reveal a relic's essence",
 		Long: `Request an authorized essence from the sphinx daemon. With
---recovery, bypass the daemon and decrypt a local tomb using the recovery
-passphrase supplied through a terminal with echo disabled.`,
+--recovery, bypass the daemon and decrypt a local tomb using the
+recovery incantation (passphrase) supplied through a terminal with echo disabled.`,
 		Args: cobra.ExactArgs(1),
 		RunE: func(_ *cobra.Command, args []string) error {
 			if options.recovery {
@@ -183,7 +184,7 @@ passphrase supplied through a terminal with echo disabled.`,
 	command.Flags().StringVar(&options.server, "server", options.server, "sphinx base URL")
 	command.Flags().StringVar(&options.tomb, "tomb", options.tomb, "local tomb root used with --recovery")
 	command.Flags().StringVar(&options.facet, "facet", "", "reveal one field (facet) of the essence")
-	command.Flags().BoolVar(&options.recovery, "recovery", false, "decrypt locally using the recovery passphrase")
+	command.Flags().BoolVar(&options.recovery, "recovery", false, "decrypt locally using the recovery incantation (passphrase)")
 	registerPathCompletion(command, &options.tomb)
 	_ = command.RegisterFlagCompletionFunc("facet", func(_ *cobra.Command, args []string, _ string) ([]string, cobra.ShellCompDirective) {
 		if len(args) == 0 {
@@ -228,7 +229,7 @@ func runEntomb(options authorOptions, relicPath string) error {
 	if err := definition.ValidateDocument(values.Essence, values.Inscription); err != nil {
 		return err
 	}
-	passphrase, err := readPassphrase("Recovery passphrase: ", true)
+	passphrase, err := readPassphrase("Recovery incantation (passphrase): ", true)
 	if err != nil {
 		return err
 	}
@@ -289,7 +290,7 @@ func runReseal(options authorOptions, relicPath string) error {
 	if err := definition.ValidateDocument(values.Essence, values.Inscription); err != nil {
 		return err
 	}
-	passphrase, err := readPassphrase("Recovery passphrase: ", false)
+	passphrase, err := readPassphrase("Recovery incantation (passphrase): ", false)
 	if err != nil {
 		return err
 	}
@@ -490,7 +491,7 @@ func revealRecovery(options revealOptions, relicPath string) error {
 	if err != nil {
 		return err
 	}
-	passphrase, err := readPassphrase("Recovery passphrase: ", false)
+	passphrase, err := readPassphrase("Recovery incantation (passphrase): ", false)
 	if err != nil {
 		return err
 	}
@@ -642,7 +643,7 @@ func readPassphrase(prompt string, confirm bool) (string, error) {
 		return "", fmt.Errorf("recovery passphrase cannot be empty")
 	}
 	if confirm {
-		repeated, err := readSecret("Confirm recovery passphrase: ")
+		repeated, err := readSecret("Confirm recovery incantation: ")
 		if err != nil {
 			return "", err
 		}

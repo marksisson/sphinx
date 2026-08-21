@@ -42,6 +42,7 @@ A tomb may be a local directory or a Git repository hosted by GitHub or another 
 | Cryptographic key holder | **guardian** | The keeper of the Keychain-backed private key used by the sphinx daemon |
 | Private key | **private key** | The guardian's safeguarded private key |
 | Public key | **public key** | The guardian's public key used to seal relics |
+| Recovery passphrase | **recovery incantation** | The user-chosen passphrase used to recover relics without the guardian private key |
 | Operation request | **petition** | A request submitted to the sphinx |
 | Generic or unauthenticated caller | **petitioner** | A person or workload submitting a petition |
 | Authentication challenge | **riddle** | A challenge posed by the sphinx to verify identity |
