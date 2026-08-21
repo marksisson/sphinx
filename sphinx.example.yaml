@@ -1,0 +1,13 @@
+version: 1
+default_tomb: production
+
+tombs:
+  production:
+    locator: github:example/secrets-tomb/main?dir=secrets
+    lock: ./production.tomb.lock.yaml
+    decree: ./decree.yaml
+    chronicle: ~/Library/Logs/sphinx-production.jsonl
+    listen: 127.0.0.1:8787
+    guardian:
+      keychain_service: dev.marksisson.sphinx.keys
+      keychain_account: sphinx-v1

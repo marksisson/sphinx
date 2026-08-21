@@ -8,19 +8,11 @@
   <key>ProgramArguments</key>
   <array>
     <string>/absolute/path/to/sphinx</string>
+    <string>--config</string>
+    <string>/Users/USERNAME/Library/Application Support/sphinx/config.yaml</string>
+    <string>tomb</string>
     <string>protect</string>
-    <string>--listen</string>
-    <string>127.0.0.1:8787</string>
-    <string>--tomb</string>
-    <string>github:OWNER/REPOSITORY</string>
-    <string>--tomb-ref</string>
-    <string>main</string>
-    <string>--tomb-path</string>
-    <string>secrets</string>
-    <string>--decree</string>
-    <string>/absolute/path/to/decree.yaml</string>
-    <string>--chronicle</string>
-    <string>/Users/USERNAME/Library/Logs/sphinx-chronicle.jsonl</string>
+    <string>production</string>
   </array>
 
   <key>RunAtLoad</key>

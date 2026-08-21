@@ -83,7 +83,7 @@ func (s *Server) revealRelic(writer http.ResponseWriter, request *http.Request) 
 	if err != nil {
 		event.Reason = "identity verification failed"
 		s.record(event)
-		s.logger.Warn("Relic petition denied", "request_id", requestID, "reason", event.Reason)
+		s.logger.Warn("relic petition denied", "request_id", requestID, "reason", event.Reason)
 		writeError(writer, http.StatusUnauthorized, requestID, "identity verification failed")
 		return
 	}
@@ -100,7 +100,7 @@ func (s *Server) revealRelic(writer http.ResponseWriter, request *http.Request) 
 	event.Allowed, event.Reason = allowed, reason
 	if !allowed {
 		s.record(event)
-		s.logger.Warn("Relic petition denied", "request_id", requestID, "login", principal.Login, "path", secretPath)
+		s.logger.Warn("relic petition denied", "request_id", requestID, "login", principal.Login, "path", secretPath)
 		writeError(writer, http.StatusForbidden, requestID, "access denied")
 		return
 	}
@@ -112,17 +112,17 @@ func (s *Server) revealRelic(writer http.ResponseWriter, request *http.Request) 
 
 	filename, err := s.relicFilename(secretPath)
 	if err != nil {
-		s.logger.Error("resolve Relic file", "request_id", requestID, "error", err)
-		writeError(writer, http.StatusNotFound, requestID, "Relic not found")
+		s.logger.Error("resolve relic file", "request_id", requestID, "error", err)
+		writeError(writer, http.StatusNotFound, requestID, "relic not found")
 		return
 	}
 	encrypted, err := readLimited(filename, maxDocumentSize)
 	if err != nil {
 		if errors.Is(err, os.ErrNotExist) {
-			writeError(writer, http.StatusNotFound, requestID, "Relic not found")
+			writeError(writer, http.StatusNotFound, requestID, "relic not found")
 		} else {
-			s.logger.Error("read sealed Relic", "request_id", requestID, "error", err)
-			writeError(writer, http.StatusInternalServerError, requestID, "Relic unavailable")
+			s.logger.Error("read sealed relic", "request_id", requestID, "error", err)
+			writeError(writer, http.StatusInternalServerError, requestID, "relic unavailable")
 		}
 		return
 	}
@@ -130,15 +130,15 @@ func (s *Server) revealRelic(writer http.ResponseWriter, request *http.Request) 
 
 	plaintext, err := s.decrypter.Plain(request.Context(), encrypted)
 	if err != nil {
-		s.logger.Error("unseal Relic", "request_id", requestID, "error", err)
-		writeError(writer, http.StatusInternalServerError, requestID, "Relic unavailable")
+		s.logger.Error("unseal relic", "request_id", requestID, "error", err)
+		writeError(writer, http.StatusInternalServerError, requestID, "relic unavailable")
 		return
 	}
 	defer clear(plaintext)
 	document, err := relic.ParsePlain(plaintext)
 	if err != nil {
-		s.logger.Error("parse Relic", "request_id", requestID, "error", err)
-		writeError(writer, http.StatusInternalServerError, requestID, "Relic unavailable")
+		s.logger.Error("parse relic", "request_id", requestID, "error", err)
+		writeError(writer, http.StatusInternalServerError, requestID, "relic unavailable")
 		return
 	}
 	definition, err := schema.Load(s.root, document.Schema)
@@ -146,15 +146,15 @@ func (s *Server) revealRelic(writer http.ResponseWriter, request *http.Request) 
 		err = definition.ValidateDocument(document.Essence, document.Inscription)
 	}
 	if err != nil {
-		s.logger.Error("validate Relic schema", "request_id", requestID, "error", err)
-		writeError(writer, http.StatusInternalServerError, requestID, "Relic unavailable")
+		s.logger.Error("validate relic schema", "request_id", requestID, "error", err)
+		writeError(writer, http.StatusInternalServerError, requestID, "relic unavailable")
 		return
 	}
 	var value any = document.Essence
 	if field != "" {
 		selected, ok := document.Essence[field]
 		if !ok {
-			writeError(writer, http.StatusNotFound, requestID, "Essence facet not found")
+			writeError(writer, http.StatusNotFound, requestID, "essence facet not found")
 			return
 		}
 		value = selected

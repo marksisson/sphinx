@@ -14,7 +14,6 @@ import (
 	"strings"
 	"time"
 
-	"filippo.io/age"
 	"github.com/marksisson/sphinx/internal/keychain"
 	"github.com/marksisson/sphinx/internal/relic"
 	"github.com/marksisson/sphinx/internal/schema"
@@ -45,7 +44,7 @@ type suppliedValues struct {
 }
 
 func newRelicCommand() *cobra.Command {
-	command := &cobra.Command{Use: "relic", Short: "Create, inspect, update, and reveal Relics"}
+	command := &cobra.Command{Use: "relic", Short: "Create, inspect, update, and reveal relics (yaml files)"}
 	command.AddCommand(
 		newEntombCommand(), newInspectCommand(), newRevealCommand(), newInscribeCommand(), newResealCommand(),
 	)
@@ -56,10 +55,10 @@ func newEntombCommand() *cobra.Command {
 	var options authorOptions
 	command := &cobra.Command{
 		Use:   "entomb PATH",
-		Short: "Create and encrypt a new Relic",
-		Long: `Create a new Relic from a Tomb schema. Essence fields are prompted
+		Short: "Create a new relic with inscription and encrypted essence",
+		Long: `Create a new relic from a tomb schema. essence fields are prompted
 without terminal echo. The recovery passphrase is supplied securely and is
-never generated or stored by Sphinx.`,
+never generated or stored by sphinx.`,
 		Args: cobra.ExactArgs(1),
 		RunE: func(_ *cobra.Command, args []string) error {
 			return runEntomb(options, args[0])
@@ -74,9 +73,9 @@ func newResealCommand() *cobra.Command {
 	var options authorOptions
 	command := &cobra.Command{
 		Use:   "reseal PATH",
-		Short: "Replace and re-encrypt a Relic's Essence",
-		Long: `Replace the structured Essence of an existing Relic. Resealing
-rotates the Relic encryption key and requires the existing recovery passphrase.`,
+		Short: "Replace and re-encrypt a relic's essence",
+		Long: `Replace the structured essence of an existing relic. Resealing
+rotates the relic encryption key and requires the existing recovery passphrase.`,
 		Args: cobra.ExactArgs(1),
 		RunE: func(_ *cobra.Command, args []string) error {
 			return runReseal(options, args[0])
@@ -91,16 +90,16 @@ func newInscribeCommand() *cobra.Command {
 	options := authorOptions{tomb: "./secrets"}
 	command := &cobra.Command{
 		Use:   "inscribe PATH",
-		Short: "Update a Relic's non-secret Inscription",
-		Long: `Update repository-visible metadata defined by the Relic's schema.
-Sphinx uses its online Keychain identity to recompute the Relic integrity check;
+		Short: "Update a relic's non-secret inscription",
+		Long: `Update repository-visible metadata defined by the relic's schema.
+sphinx uses its guardian private key from Keychain to recompute the relic integrity check;
 the recovery passphrase is not required.`,
 		Args: cobra.ExactArgs(1),
 		RunE: func(_ *cobra.Command, args []string) error {
 			return runInscribe(options, args[0])
 		},
 	}
-	command.Flags().StringVar(&options.tomb, "tomb", options.tomb, "local Tomb root")
+	command.Flags().StringVar(&options.tomb, "tomb", options.tomb, "local tomb root")
 	addGuardianFlags(command, &options.guardian)
 	registerPathCompletion(command, &options.tomb)
 	return command
@@ -111,29 +110,29 @@ func newInspectCommand() *cobra.Command {
 	var guardian guardianOptions
 	command := &cobra.Command{
 		Use:   "inspect PATH",
-		Short: "Show a Relic's schema and non-secret Inscription",
-		Long:  "Verify encrypted Relic integrity, then show only the schema and non-secret Inscription.",
+		Short: "Show a relic's schema and non-secret inscription",
+		Long:  "Verify encrypted relic integrity, then show only the schema and non-secret inscription.",
 		Args:  cobra.ExactArgs(1),
 		RunE: func(_ *cobra.Command, args []string) error {
 			encrypted, err := relic.Read(tombRoot, args[0])
 			if err != nil {
 				return err
 			}
-			identity, recipient, err := onlineIdentity(guardian)
+			privateKey, publicKey, err := guardianKeyPair(guardian)
 			if err != nil {
 				return err
 			}
 			configuration, err := tomb.LoadConfiguration(tombRoot)
 			if err != nil {
-				return fmt.Errorf("load Tomb configuration: %w", err)
+				return fmt.Errorf("load tomb configuration: %w", err)
 			}
-			if configuration.OnlineRecipient != recipient {
-				return fmt.Errorf("Keychain identity does not match the Tomb's online recipient")
+			if configuration.PublicKey != publicKey {
+				return fmt.Errorf("private key in Keychain does not match the tomb's public key")
 			}
 			if configuration.Recovery.Type != secret.RecoveryType {
-				return fmt.Errorf("unsupported Tomb recovery type %q", configuration.Recovery.Type)
+				return fmt.Errorf("unsupported tomb recovery type %q", configuration.Recovery.Type)
 			}
-			decrypter, err := secret.NewDecrypter(identity)
+			decrypter, err := secret.NewDecrypter(privateKey)
 			if err != nil {
 				return err
 			}
@@ -159,7 +158,7 @@ func newInspectCommand() *cobra.Command {
 			return nil
 		},
 	}
-	command.Flags().StringVar(&tombRoot, "tomb", "./secrets", "local Tomb root")
+	command.Flags().StringVar(&tombRoot, "tomb", "./secrets", "local tomb root")
 	addGuardianFlags(command, &guardian)
 	registerPathCompletion(command, &tombRoot)
 	return command
@@ -169,9 +168,9 @@ func newRevealCommand() *cobra.Command {
 	options := revealOptions{server: "http://127.0.0.1:8787", tomb: "./secrets"}
 	command := &cobra.Command{
 		Use:   "reveal PATH",
-		Short: "Reveal a Relic's Essence",
-		Long: `Request an authorized Essence from the Sphinx daemon. With
---recovery, bypass the daemon and decrypt a local Tomb using the recovery
+		Short: "reveal a relic's essence",
+		Long: `Request an authorized essence from the sphinx daemon. With
+--recovery, bypass the daemon and decrypt a local tomb using the recovery
 passphrase supplied through a terminal with echo disabled.`,
 		Args: cobra.ExactArgs(1),
 		RunE: func(_ *cobra.Command, args []string) error {
@@ -181,9 +180,9 @@ passphrase supplied through a terminal with echo disabled.`,
 			return revealOnline(options, args[0])
 		},
 	}
-	command.Flags().StringVar(&options.server, "server", options.server, "Sphinx base URL")
-	command.Flags().StringVar(&options.tomb, "tomb", options.tomb, "local Tomb root used with --recovery")
-	command.Flags().StringVar(&options.facet, "facet", "", "reveal one field (facet) of the Essence")
+	command.Flags().StringVar(&options.server, "server", options.server, "sphinx base URL")
+	command.Flags().StringVar(&options.tomb, "tomb", options.tomb, "local tomb root used with --recovery")
+	command.Flags().StringVar(&options.facet, "facet", "", "reveal one field (facet) of the essence")
 	command.Flags().BoolVar(&options.recovery, "recovery", false, "decrypt locally using the recovery passphrase")
 	registerPathCompletion(command, &options.tomb)
 	_ = command.RegisterFlagCompletionFunc("facet", func(_ *cobra.Command, args []string, _ string) ([]string, cobra.ShellCompDirective) {
@@ -197,13 +196,13 @@ passphrase supplied through a terminal with echo disabled.`,
 
 func addAuthorFlags(command *cobra.Command, options *authorOptions, includeSchema bool) {
 	options.tomb = "./secrets"
-	command.Flags().StringVar(&options.tomb, "tomb", options.tomb, "local Tomb root")
+	command.Flags().StringVar(&options.tomb, "tomb", options.tomb, "local tomb root")
 	if includeSchema {
-		command.Flags().StringVar(&options.schema, "schema", "", "Relic schema reference (required)")
+		command.Flags().StringVar(&options.schema, "schema", "", "relic schema reference (required)")
 		_ = command.MarkFlagRequired("schema")
 	}
-	command.Flags().BoolVar(&options.stdin, "stdin", false, "read Essence and Inscription as JSON from stdin")
-	command.Flags().StringVar(&options.fromJSON, "from-json", "", "read Essence and Inscription from a JSON file")
+	command.Flags().BoolVar(&options.stdin, "stdin", false, "read essence and inscription as JSON from stdin")
+	command.Flags().StringVar(&options.fromJSON, "from-json", "", "read essence and inscription from a JSON file")
 	command.MarkFlagsMutuallyExclusive("stdin", "from-json")
 	addGuardianFlags(command, &options.guardian)
 }
@@ -214,7 +213,7 @@ func runEntomb(options authorOptions, relicPath string) error {
 		return err
 	}
 	if _, err := os.Stat(filename); err == nil {
-		return fmt.Errorf("Relic %q already exists; use reseal", relicPath)
+		return fmt.Errorf("relic %q already exists; use reseal", relicPath)
 	} else if !os.IsNotExist(err) {
 		return err
 	}
@@ -233,11 +232,11 @@ func runEntomb(options authorOptions, relicPath string) error {
 	if err != nil {
 		return err
 	}
-	_, recipient, err := onlineIdentity(options.guardian)
+	_, publicKey, err := guardianKeyPair(options.guardian)
 	if err != nil {
 		return err
 	}
-	if err := ensureTombConfiguration(options.tomb, recipient, passphrase, true); err != nil {
+	if err := ensureTombConfiguration(options.tomb, publicKey, passphrase, true); err != nil {
 		return err
 	}
 	document := relic.Document{Format: relic.FormatVersion, Schema: definition.Reference(), Essence: values.Essence, Inscription: values.Inscription}
@@ -246,7 +245,7 @@ func runEntomb(options authorOptions, relicPath string) error {
 		return err
 	}
 	defer clear(plaintext)
-	encrypted, err := secret.Encrypt(plaintext, recipient, passphrase)
+	encrypted, err := secret.Encrypt(plaintext, publicKey, passphrase)
 	if err != nil {
 		return err
 	}
@@ -262,11 +261,11 @@ func runReseal(options authorOptions, relicPath string) error {
 	if err != nil {
 		return err
 	}
-	identity, recipient, err := onlineIdentity(options.guardian)
+	privateKey, publicKey, err := guardianKeyPair(options.guardian)
 	if err != nil {
 		return err
 	}
-	decrypter, err := secret.NewDecrypter(identity)
+	decrypter, err := secret.NewDecrypter(privateKey)
 	if err != nil {
 		return err
 	}
@@ -294,7 +293,7 @@ func runReseal(options authorOptions, relicPath string) error {
 	if err != nil {
 		return err
 	}
-	if err := ensureTombConfiguration(options.tomb, recipient, passphrase, false); err != nil {
+	if err := ensureTombConfiguration(options.tomb, publicKey, passphrase, false); err != nil {
 		return err
 	}
 	recovered, err := secret.DecryptRecovery(encrypted, passphrase)
@@ -310,7 +309,7 @@ func runReseal(options authorOptions, relicPath string) error {
 		return err
 	}
 	defer clear(updatedPlain)
-	updated, err := secret.Encrypt(updatedPlain, recipient, passphrase)
+	updated, err := secret.Encrypt(updatedPlain, publicKey, passphrase)
 	if err != nil {
 		return err
 	}
@@ -326,18 +325,18 @@ func runInscribe(options authorOptions, relicPath string) error {
 	if err != nil {
 		return err
 	}
-	identity, recipient, err := onlineIdentity(options.guardian)
+	privateKey, publicKey, err := guardianKeyPair(options.guardian)
 	if err != nil {
 		return err
 	}
 	configuration, err := tomb.LoadConfiguration(options.tomb)
 	if err != nil {
-		return fmt.Errorf("load Tomb configuration: %w", err)
+		return fmt.Errorf("load tomb configuration: %w", err)
 	}
-	if configuration.OnlineRecipient != recipient {
-		return fmt.Errorf("Keychain identity does not match the Tomb's online recipient")
+	if configuration.PublicKey != publicKey {
+		return fmt.Errorf("private key in Keychain does not match the tomb's guardian public key")
 	}
-	decrypter, err := secret.NewDecrypter(identity)
+	decrypter, err := secret.NewDecrypter(privateKey)
 	if err != nil {
 		return err
 	}
@@ -367,7 +366,7 @@ func runInscribe(options authorOptions, relicPath string) error {
 		return err
 	}
 	defer clear(updatedPlain)
-	updated, err := secret.Update(encrypted, updatedPlain, identity)
+	updated, err := secret.Update(encrypted, updatedPlain, privateKey)
 	if err != nil {
 		return err
 	}
@@ -396,7 +395,7 @@ func collectValues(definition schema.Definition, existing suppliedValues, option
 		decoder.DisallowUnknownFields()
 		decoder.UseNumber()
 		if err := decoder.Decode(&values); err != nil {
-			return suppliedValues{}, fmt.Errorf("decode supplied Relic values: %w", err)
+			return suppliedValues{}, fmt.Errorf("decode supplied relic values: %w", err)
 		}
 		if values.Essence == nil {
 			values.Essence = make(map[string]any)
@@ -497,15 +496,15 @@ func revealRecovery(options revealOptions, relicPath string) error {
 	}
 	configuration, err := tomb.LoadConfiguration(options.tomb)
 	if err != nil {
-		return fmt.Errorf("load Tomb configuration: %w", err)
+		return fmt.Errorf("load tomb configuration: %w", err)
 	}
 	if configuration.Recovery.Type != secret.RecoveryType {
-		return fmt.Errorf("unsupported Tomb recovery type %q", configuration.Recovery.Type)
+		return fmt.Errorf("unsupported tomb recovery type %q", configuration.Recovery.Type)
 	}
 	if err := secret.VerifyRecoveryCheck(configuration.Recovery.EncryptedCheck, passphrase); err != nil {
-		return fmt.Errorf("verify Tomb recovery passphrase: %w", err)
+		return fmt.Errorf("verify tomb recovery passphrase: %w", err)
 	}
-	if err := secret.ValidateRecipients(encrypted, configuration.OnlineRecipient); err != nil {
+	if err := secret.ValidatePublicKey(encrypted, configuration.PublicKey); err != nil {
 		return err
 	}
 	plaintext, err := secret.DecryptRecovery(encrypted, passphrase)
@@ -541,7 +540,7 @@ func revealOnline(options revealOptions, relicPath string) error {
 	}
 	response, err := (&http.Client{Timeout: 20 * time.Second}).Do(request)
 	if err != nil {
-		return fmt.Errorf("petition Sphinx: %w", err)
+		return fmt.Errorf("petition sphinx: %w", err)
 	}
 	defer response.Body.Close()
 	var envelope struct {
@@ -549,7 +548,7 @@ func revealOnline(options revealOptions, relicPath string) error {
 		Error   string          `json:"error"`
 	}
 	if err := json.NewDecoder(response.Body).Decode(&envelope); err != nil {
-		return fmt.Errorf("decode Sphinx response: %w", err)
+		return fmt.Errorf("decode sphinx response: %w", err)
 	}
 	if response.StatusCode != http.StatusOK {
 		if envelope.Error == "" {
@@ -568,7 +567,7 @@ func printEssence(essence map[string]any, facet string) error {
 	if facet != "" {
 		value, ok := essence[facet]
 		if !ok {
-			return fmt.Errorf("Essence has no facet %q", facet)
+			return fmt.Errorf("essence has no facet %q", facet)
 		}
 		return printValue(value)
 	}
@@ -591,7 +590,7 @@ func printValue(value any) error {
 	return nil
 }
 
-func ensureTombConfiguration(root, recipient, passphrase string, create bool) error {
+func ensureTombConfiguration(root, publicKey, passphrase string, create bool) error {
 	configuration, err := tomb.LoadConfiguration(root)
 	if os.IsNotExist(err) && create {
 		check, checkErr := secret.NewRecoveryCheck(passphrase)
@@ -599,8 +598,8 @@ func ensureTombConfiguration(root, recipient, passphrase string, create bool) er
 			return checkErr
 		}
 		return tomb.WriteConfiguration(root, tomb.Configuration{
-			Format:          1,
-			OnlineRecipient: recipient,
+			Format:    1,
+			PublicKey: publicKey,
 			Recovery: tomb.RecoveryConfiguration{
 				Type:           secret.RecoveryType,
 				EncryptedCheck: check,
@@ -608,30 +607,30 @@ func ensureTombConfiguration(root, recipient, passphrase string, create bool) er
 		})
 	}
 	if err != nil {
-		return fmt.Errorf("load Tomb configuration: %w", err)
+		return fmt.Errorf("load tomb configuration: %w", err)
 	}
-	if configuration.OnlineRecipient != recipient {
-		return fmt.Errorf("Keychain identity does not match the Tomb's online recipient")
+	if configuration.PublicKey != publicKey {
+		return fmt.Errorf("private key in Keychain does not match the tomb's guardian public key")
 	}
 	if configuration.Recovery.Type != secret.RecoveryType {
-		return fmt.Errorf("unsupported Tomb recovery type %q", configuration.Recovery.Type)
+		return fmt.Errorf("unsupported tomb recovery type %q", configuration.Recovery.Type)
 	}
 	if err := secret.VerifyRecoveryCheck(configuration.Recovery.EncryptedCheck, passphrase); err != nil {
-		return fmt.Errorf("verify Tomb recovery passphrase: %w", err)
+		return fmt.Errorf("verify tomb recovery passphrase: %w", err)
 	}
 	return nil
 }
 
-func onlineIdentity(options guardianOptions) (identity, recipient string, err error) {
-	identity, err = keychain.Get(options.service, options.account)
+func guardianKeyPair(options guardianOptions) (privateKey, publicKey string, err error) {
+	privateKey, err = keychain.Get(options.service, options.account)
 	if err != nil {
-		return "", "", fmt.Errorf("load Sphinx identity: %w", err)
+		return "", "", fmt.Errorf("load sphinx private key: %w", err)
 	}
-	parsed, err := age.ParseX25519Identity(strings.TrimSpace(identity))
+	publicKey, err = secret.DerivePublicKey(strings.TrimSpace(privateKey))
 	if err != nil {
-		return "", "", fmt.Errorf("parse Sphinx identity: %w", err)
+		return "", "", fmt.Errorf("parse sphinx private key: %w", err)
 	}
-	return identity, parsed.Recipient().String(), nil
+	return privateKey, publicKey, nil
 }
 
 func readPassphrase(prompt string, confirm bool) (string, error) {

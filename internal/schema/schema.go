@@ -106,7 +106,7 @@ func (d Definition) Validate() error {
 		return fmt.Errorf("version must be positive")
 	}
 	if len(d.Essence) == 0 {
-		return fmt.Errorf("at least one Essence field is required")
+		return fmt.Errorf("at least one essence field is required")
 	}
 	seen := make(map[string]bool)
 	for _, group := range [][]Field{d.Essence, d.Inscription} {
@@ -136,10 +136,10 @@ func (d Definition) Validate() error {
 }
 
 func (d Definition) ValidateDocument(essence, inscription map[string]any) error {
-	if err := validateFields("Essence", d.Essence, essence); err != nil {
+	if err := validateFields("essence", d.Essence, essence); err != nil {
 		return err
 	}
-	return validateFields("Inscription", d.Inscription, inscription)
+	return validateFields("inscription", d.Inscription, inscription)
 }
 
 func validateFields(group string, fields []Field, values map[string]any) error {

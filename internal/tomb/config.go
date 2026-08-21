@@ -12,9 +12,9 @@ import (
 const ConfigurationPath = ".sphinx/tomb.yaml"
 
 type Configuration struct {
-	Format          int                   `yaml:"format"`
-	OnlineRecipient string                `yaml:"online_recipient"`
-	Recovery        RecoveryConfiguration `yaml:"recovery"`
+	Format    int                   `yaml:"format"`
+	PublicKey string                `yaml:"public_key"`
+	Recovery  RecoveryConfiguration `yaml:"recovery"`
 }
 
 type RecoveryConfiguration struct {
@@ -25,7 +25,7 @@ type RecoveryConfiguration struct {
 func LoadConfiguration(root string) (*Configuration, error) {
 	directory := filepath.Join(root, ".sphinx")
 	if info, err := os.Lstat(directory); err == nil && info.Mode()&os.ModeSymlink != 0 {
-		return nil, fmt.Errorf("Tomb configuration directory is a symlink")
+		return nil, fmt.Errorf("tomb configuration directory is a symlink")
 	} else if err != nil {
 		return nil, err
 	}
@@ -35,7 +35,7 @@ func LoadConfiguration(root string) (*Configuration, error) {
 		return nil, err
 	}
 	if info.Mode()&os.ModeSymlink != 0 {
-		return nil, fmt.Errorf("Tomb configuration is a symlink")
+		return nil, fmt.Errorf("tomb configuration is a symlink")
 	}
 	data, err := os.ReadFile(filename)
 	if err != nil {
@@ -45,20 +45,20 @@ func LoadConfiguration(root string) (*Configuration, error) {
 	decoder := yaml.NewDecoder(strings.NewReader(string(data)))
 	decoder.KnownFields(true)
 	if err := decoder.Decode(&configuration); err != nil {
-		return nil, fmt.Errorf("parse Tomb configuration: %w", err)
+		return nil, fmt.Errorf("parse tomb configuration: %w", err)
 	}
 	if configuration.Format != 1 {
-		return nil, fmt.Errorf("unsupported Tomb configuration format %d", configuration.Format)
+		return nil, fmt.Errorf("unsupported tomb configuration format %d", configuration.Format)
 	}
-	if configuration.OnlineRecipient == "" || configuration.Recovery.Type == "" || configuration.Recovery.EncryptedCheck == "" {
-		return nil, fmt.Errorf("Tomb configuration is incomplete")
+	if configuration.PublicKey == "" || configuration.Recovery.Type == "" || configuration.Recovery.EncryptedCheck == "" {
+		return nil, fmt.Errorf("tomb configuration is incomplete")
 	}
 	return &configuration, nil
 }
 
 func WriteConfiguration(root string, configuration Configuration) error {
 	if configuration.Format != 1 {
-		return fmt.Errorf("unsupported Tomb configuration format %d", configuration.Format)
+		return fmt.Errorf("unsupported tomb configuration format %d", configuration.Format)
 	}
 	data, err := yaml.Marshal(configuration)
 	if err != nil {
@@ -66,7 +66,7 @@ func WriteConfiguration(root string, configuration Configuration) error {
 	}
 	directory := filepath.Join(root, ".sphinx")
 	if info, err := os.Lstat(directory); err == nil && info.Mode()&os.ModeSymlink != 0 {
-		return fmt.Errorf("Tomb configuration directory is a symlink")
+		return fmt.Errorf("tomb configuration directory is a symlink")
 	} else if err != nil && !os.IsNotExist(err) {
 		return err
 	}

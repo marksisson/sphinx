@@ -23,39 +23,55 @@ import (
 )
 
 const (
-	RecoveryType = "age-scrypt-v1"
-	sopsVersion  = "3.12.1"
+	RecoveryType    = "passphrase-v1"
+	metadataVersion = "3.12.1"
 )
 
 type Decrypter struct {
-	identities []age.Identity
-	recipient  string
+	privateKeys []age.Identity
+	publicKey   string
 }
 
-func NewDecrypter(identity string) (*Decrypter, error) {
-	parsed, err := age.ParseIdentities(strings.NewReader(identity))
+func GenerateKeyPair() (privateKey, publicKey string, err error) {
+	generated, err := age.GenerateX25519Identity()
 	if err != nil {
-		return nil, fmt.Errorf("parse age identity: %w", err)
+		return "", "", fmt.Errorf("generate private key: %w", err)
+	}
+	return generated.String(), generated.Recipient().String(), nil
+}
+
+func DerivePublicKey(privateKey string) (string, error) {
+	parsed, err := age.ParseX25519Identity(strings.TrimSpace(privateKey))
+	if err != nil {
+		return "", fmt.Errorf("parse private key: %w", err)
+	}
+	return parsed.Recipient().String(), nil
+}
+
+func NewDecrypter(privateKey string) (*Decrypter, error) {
+	parsed, err := age.ParseIdentities(strings.NewReader(privateKey))
+	if err != nil {
+		return nil, fmt.Errorf("parse private key: %w", err)
 	}
 	if len(parsed) != 1 {
-		return nil, fmt.Errorf("exactly one online age identity is required")
+		return nil, fmt.Errorf("exactly one guardian private key is required")
 	}
 	x25519, ok := parsed[0].(*age.X25519Identity)
 	if !ok {
-		return nil, fmt.Errorf("online age identity must be X25519")
+		return nil, fmt.Errorf("guardian private key must be X25519")
 	}
-	return &Decrypter{identities: parsed, recipient: x25519.Recipient().String()}, nil
+	return &Decrypter{privateKeys: parsed, publicKey: x25519.Recipient().String()}, nil
 }
 
-// Plain decrypts a SOPS YAML document and verifies its MAC.
+// Plain decrypts an encrypted YAML document and verifies its MAC.
 func (d *Decrypter) Plain(_ context.Context, encrypted []byte) ([]byte, error) {
-	if err := ValidateRecipients(encrypted, d.recipient); err != nil {
+	if err := ValidatePublicKey(encrypted, d.publicKey); err != nil {
 		return nil, err
 	}
-	return decryptWithIdentity(encrypted, d.identities...)
+	return decryptWithPrivateKeys(encrypted, d.privateKeys...)
 }
 
-// Value decrypts a SOPS YAML document and returns its Essence. Legacy files
+// Value decrypts a encrypted YAML document and returns its essence. Legacy files
 // with a top-level value field remain readable.
 func (d *Decrypter) Value(ctx context.Context, encrypted []byte) (any, error) {
 	plaintext, err := d.Plain(ctx, encrypted)
@@ -73,42 +89,42 @@ func (d *Decrypter) Value(ctx context.Context, encrypted []byte) (any, error) {
 	if value, ok := document["value"]; ok {
 		return value, nil
 	}
-	return nil, fmt.Errorf("decrypted document has no top-level Essence field")
+	return nil, fmt.Errorf("decrypted document has no top-level essence field")
 }
 
-// Encrypt creates a SOPS document with one online X25519 wrapping and one
-// recovery wrapping made with age's native scrypt recipient.
-func Encrypt(plaintext []byte, onlineRecipient, recoveryPassphrase string) ([]byte, error) {
+// Encrypt creates an encrypted document with one guardian public-key wrapping and one
+// passphrase-based recovery wrapping.
+func Encrypt(plaintext []byte, encodedPublicKey, recoveryPassphrase string) ([]byte, error) {
 	if recoveryPassphrase == "" {
 		return nil, fmt.Errorf("recovery passphrase cannot be empty")
 	}
-	recipient, err := age.ParseX25519Recipient(strings.TrimSpace(onlineRecipient))
+	publicKey, err := age.ParseX25519Recipient(strings.TrimSpace(encodedPublicKey))
 	if err != nil {
-		return nil, fmt.Errorf("parse online age recipient: %w", err)
+		return nil, fmt.Errorf("parse guardian public key: %w", err)
 	}
 
 	dataKey := make([]byte, 32)
 	if _, err := rand.Read(dataKey); err != nil {
-		return nil, fmt.Errorf("generate SOPS data key: %w", err)
+		return nil, fmt.Errorf("generate relic data key: %w", err)
 	}
 	defer clear(dataKey)
 
-	onlineEnvelope, err := encryptDataKey(dataKey, recipient)
+	guardianEnvelope, err := encryptDataKey(dataKey, publicKey)
 	if err != nil {
-		return nil, fmt.Errorf("wrap data key for online identity: %w", err)
+		return nil, fmt.Errorf("wrap data key with guardian public key: %w", err)
 	}
-	recoveryRecipient, err := age.NewScryptRecipient(recoveryPassphrase)
+	recoveryKey, err := age.NewScryptRecipient(recoveryPassphrase)
 	if err != nil {
-		return nil, fmt.Errorf("create recovery recipient: %w", err)
+		return nil, fmt.Errorf("derive recovery key: %w", err)
 	}
-	recoveryEnvelope, err := encryptDataKey(dataKey, recoveryRecipient)
+	recoveryEnvelope, err := encryptDataKey(dataKey, recoveryKey)
 	if err != nil {
 		return nil, fmt.Errorf("wrap data key for recovery: %w", err)
 	}
 
 	var document map[string]any
 	if err := yaml.Unmarshal(plaintext, &document); err != nil {
-		return nil, fmt.Errorf("parse plaintext Relic: %w", err)
+		return nil, fmt.Errorf("parse plaintext relic: %w", err)
 	}
 	document["recovery"] = map[string]any{
 		"type":               RecoveryType,
@@ -123,16 +139,16 @@ func Encrypt(plaintext []byte, onlineRecipient, recoveryPassphrase string) ([]by
 	store := yamlstore.NewStore(&config.YAMLStoreConfig{})
 	branches, err := store.LoadPlainFile(withRecovery)
 	if err != nil {
-		return nil, fmt.Errorf("load plaintext Relic: %w", err)
+		return nil, fmt.Errorf("load plaintext relic: %w", err)
 	}
 	tree := sops.Tree{
 		Branches: branches,
 		Metadata: sops.Metadata{
 			EncryptedRegex: "^essence$",
-			Version:        sopsVersion,
+			Version:        metadataVersion,
 			KeyGroups: []sops.KeyGroup{{&sopsage.MasterKey{
-				Recipient:    recipient.String(),
-				EncryptedKey: onlineEnvelope,
+				Recipient:    publicKey.String(),
+				EncryptedKey: guardianEnvelope,
 			}}},
 		},
 	}
@@ -140,14 +156,14 @@ func Encrypt(plaintext []byte, onlineRecipient, recoveryPassphrase string) ([]by
 }
 
 // Update replaces plaintext in an existing document while retaining its data
-// key and both recipient envelopes. It is used for Inscription-only changes.
-func Update(encrypted, plaintext []byte, onlineIdentity string) ([]byte, error) {
-	identities, err := age.ParseIdentities(strings.NewReader(onlineIdentity))
+// key and both key wrappings. It is used for inscription-only changes.
+func Update(encrypted, plaintext []byte, privateKey string) ([]byte, error) {
+	privateKeys, err := age.ParseIdentities(strings.NewReader(privateKey))
 	if err != nil {
-		return nil, fmt.Errorf("parse age identity: %w", err)
+		return nil, fmt.Errorf("parse private key: %w", err)
 	}
 	store := yamlstore.NewStore(&config.YAMLStoreConfig{})
-	oldTree, dataKey, err := loadAndDecrypt(store, encrypted, identities...)
+	oldTree, dataKey, err := loadAndDecrypt(store, encrypted, privateKeys...)
 	if err != nil {
 		return nil, err
 	}
@@ -167,7 +183,7 @@ func Update(encrypted, plaintext []byte, onlineIdentity string) ([]byte, error) 
 	}
 	recovery, ok := oldDocument["recovery"]
 	if !ok {
-		return nil, fmt.Errorf("Relic has no recovery envelope")
+		return nil, fmt.Errorf("relic has no recovery envelope")
 	}
 	newDocument["recovery"] = recovery
 	updatedPlain, err := yaml.Marshal(newDocument)
@@ -184,38 +200,38 @@ func Update(encrypted, plaintext []byte, onlineIdentity string) ([]byte, error) 
 	return encryptTree(store, &newTree, dataKey)
 }
 
-func ValidateRecipients(encrypted []byte, expectedOnlineRecipient string) error {
+func ValidatePublicKey(encrypted []byte, expectedPublicKey string) error {
 	var header struct {
 		Format   int            `yaml:"format"`
 		Recovery relic.Recovery `yaml:"recovery"`
 	}
 	if err := yaml.Unmarshal(encrypted, &header); err != nil {
-		return fmt.Errorf("parse Relic recipients: %w", err)
+		return fmt.Errorf("parse relic key metadata: %w", err)
 	}
-	// Legacy SOPS fixtures predate the Relic schema and recovery format.
+	// Legacy encrypted fixtures predate the relic schema and recovery format.
 	if header.Format == 0 {
 		return nil
 	}
 	if header.Format != relic.FormatVersion {
-		return fmt.Errorf("unsupported Relic format %d", header.Format)
+		return fmt.Errorf("unsupported relic format %d", header.Format)
 	}
 	if header.Recovery.Type != RecoveryType || header.Recovery.EncryptedDataKey == "" {
-		return fmt.Errorf("Relic must contain exactly one supported recovery envelope")
+		return fmt.Errorf("relic must contain exactly one supported recovery envelope")
 	}
 	store := yamlstore.NewStore(&config.YAMLStoreConfig{})
 	tree, err := store.LoadEncryptedFile(encrypted)
 	if err != nil {
-		return fmt.Errorf("load SOPS YAML: %w", err)
+		return fmt.Errorf("load encrypted YAML: %w", err)
 	}
 	if len(tree.Metadata.KeyGroups) != 1 || len(tree.Metadata.KeyGroups[0]) != 1 {
-		return fmt.Errorf("Relic must contain exactly one online SOPS recipient")
+		return fmt.Errorf("relic must contain exactly one guardian public key")
 	}
 	masterKey, ok := tree.Metadata.KeyGroups[0][0].(*sopsage.MasterKey)
 	if !ok {
-		return fmt.Errorf("Relic online recipient must use age")
+		return fmt.Errorf("relic contains unsupported public-key metadata")
 	}
-	if expectedOnlineRecipient != "" && masterKey.Recipient != expectedOnlineRecipient {
-		return fmt.Errorf("Relic online recipient does not match the Tomb")
+	if expectedPublicKey != "" && masterKey.Recipient != expectedPublicKey {
+		return fmt.Errorf("relic guardian public key does not match the tomb")
 	}
 	return nil
 }
@@ -224,25 +240,25 @@ func NewRecoveryCheck(passphrase string) (string, error) {
 	if passphrase == "" {
 		return "", fmt.Errorf("recovery passphrase cannot be empty")
 	}
-	recipient, err := age.NewScryptRecipient(passphrase)
+	recoveryKey, err := age.NewScryptRecipient(passphrase)
 	if err != nil {
 		return "", err
 	}
-	check := sha256.Sum256([]byte("sphinx Tomb recovery passphrase check v1"))
-	return encryptDataKey(check[:], recipient)
+	check := sha256.Sum256([]byte("sphinx tomb recovery passphrase check v1"))
+	return encryptDataKey(check[:], recoveryKey)
 }
 
 func VerifyRecoveryCheck(envelope, passphrase string) error {
-	identity, err := age.NewScryptIdentity(passphrase)
+	recoveryKey, err := age.NewScryptIdentity(passphrase)
 	if err != nil {
 		return err
 	}
-	actual, err := decryptDataKey(envelope, identity)
+	actual, err := decryptDataKey(envelope, recoveryKey)
 	if err != nil {
 		return err
 	}
 	defer clear(actual)
-	expected := sha256.Sum256([]byte("sphinx Tomb recovery passphrase check v1"))
+	expected := sha256.Sum256([]byte("sphinx tomb recovery passphrase check v1"))
 	if subtle.ConstantTimeCompare(actual, expected[:]) != 1 {
 		return fmt.Errorf("recovery passphrase check failed")
 	}
@@ -250,7 +266,7 @@ func VerifyRecoveryCheck(envelope, passphrase string) error {
 }
 
 func DecryptRecovery(encrypted []byte, passphrase string) ([]byte, error) {
-	if err := ValidateRecipients(encrypted, ""); err != nil {
+	if err := ValidatePublicKey(encrypted, ""); err != nil {
 		return nil, err
 	}
 	if passphrase == "" {
@@ -263,13 +279,13 @@ func DecryptRecovery(encrypted []byte, passphrase string) ([]byte, error) {
 		return nil, fmt.Errorf("parse recovery envelope: %w", err)
 	}
 	if header.Recovery.Type != RecoveryType || header.Recovery.EncryptedDataKey == "" {
-		return nil, fmt.Errorf("Relic has no supported recovery envelope")
+		return nil, fmt.Errorf("relic has no supported recovery envelope")
 	}
-	identity, err := age.NewScryptIdentity(passphrase)
+	recoveryKey, err := age.NewScryptIdentity(passphrase)
 	if err != nil {
 		return nil, err
 	}
-	dataKey, err := decryptDataKey(header.Recovery.EncryptedDataKey, identity)
+	dataKey, err := decryptDataKey(header.Recovery.EncryptedDataKey, recoveryKey)
 	if err != nil {
 		return nil, fmt.Errorf("decrypt recovery data key: %w", err)
 	}
@@ -277,9 +293,9 @@ func DecryptRecovery(encrypted []byte, passphrase string) ([]byte, error) {
 	return decryptWithDataKey(encrypted, dataKey)
 }
 
-func decryptWithIdentity(encrypted []byte, identities ...age.Identity) ([]byte, error) {
+func decryptWithPrivateKeys(encrypted []byte, privateKeys ...age.Identity) ([]byte, error) {
 	store := yamlstore.NewStore(&config.YAMLStoreConfig{})
-	_, dataKey, err := loadAndDecrypt(store, encrypted, identities...)
+	_, dataKey, err := loadAndDecrypt(store, encrypted, privateKeys...)
 	if err != nil {
 		return nil, err
 	}
@@ -287,10 +303,10 @@ func decryptWithIdentity(encrypted []byte, identities ...age.Identity) ([]byte, 
 	return decryptWithDataKey(encrypted, dataKey)
 }
 
-func loadAndDecrypt(store *yamlstore.Store, encrypted []byte, identities ...age.Identity) (sops.Tree, []byte, error) {
+func loadAndDecrypt(store *yamlstore.Store, encrypted []byte, privateKeys ...age.Identity) (sops.Tree, []byte, error) {
 	tree, err := store.LoadEncryptedFile(encrypted)
 	if err != nil {
-		return sops.Tree{}, nil, fmt.Errorf("load SOPS YAML: %w", err)
+		return sops.Tree{}, nil, fmt.Errorf("load encrypted YAML: %w", err)
 	}
 	var failures []string
 	for _, group := range tree.Metadata.KeyGroups {
@@ -299,7 +315,7 @@ func loadAndDecrypt(store *yamlstore.Store, encrypted []byte, identities ...age.
 			if !ok {
 				continue
 			}
-			dataKey, err := decryptDataKey(masterKey.EncryptedKey, identities...)
+			dataKey, err := decryptDataKey(masterKey.EncryptedKey, privateKeys...)
 			if err == nil {
 				return tree, dataKey, nil
 			}
@@ -307,29 +323,29 @@ func loadAndDecrypt(store *yamlstore.Store, encrypted []byte, identities ...age.
 		}
 	}
 	if len(failures) == 0 {
-		return sops.Tree{}, nil, fmt.Errorf("SOPS document has no age recipient")
+		return sops.Tree{}, nil, fmt.Errorf("encrypted document has no guardian public key")
 	}
-	return sops.Tree{}, nil, fmt.Errorf("decrypt SOPS data key with age: %s", strings.Join(failures, "; "))
+	return sops.Tree{}, nil, fmt.Errorf("decrypt relic data key with guardian private key: %s", strings.Join(failures, "; "))
 }
 
 func decryptWithDataKey(encrypted, dataKey []byte) ([]byte, error) {
 	store := yamlstore.NewStore(&config.YAMLStoreConfig{})
 	tree, err := store.LoadEncryptedFile(encrypted)
 	if err != nil {
-		return nil, fmt.Errorf("load SOPS YAML: %w", err)
+		return nil, fmt.Errorf("load encrypted YAML: %w", err)
 	}
 	cipher := aes.NewCipher()
 	mac, err := tree.Decrypt(dataKey, cipher)
 	if err != nil {
-		return nil, fmt.Errorf("decrypt SOPS document: %w", err)
+		return nil, fmt.Errorf("decrypt encrypted document: %w", err)
 	}
 	originalMAC, err := cipher.Decrypt(tree.Metadata.MessageAuthenticationCode, dataKey, tree.Metadata.LastModified.Format(time.RFC3339))
 	if err != nil {
-		return nil, fmt.Errorf("decrypt SOPS MAC: %w", err)
+		return nil, fmt.Errorf("decrypt MAC: %w", err)
 	}
 	originalMACString, ok := originalMAC.(string)
 	if !ok || subtle.ConstantTimeCompare([]byte(originalMACString), []byte(mac)) != 1 {
-		return nil, fmt.Errorf("verify SOPS integrity: MAC mismatch")
+		return nil, fmt.Errorf("verify MAC: mismatch")
 	}
 	plaintext, err := store.EmitPlainFile(tree.Branches)
 	if err != nil {
@@ -342,24 +358,24 @@ func encryptTree(store *yamlstore.Store, tree *sops.Tree, dataKey []byte) ([]byt
 	cipher := aes.NewCipher()
 	mac, err := tree.Encrypt(dataKey, cipher)
 	if err != nil {
-		return nil, fmt.Errorf("encrypt Relic: %w", err)
+		return nil, fmt.Errorf("encrypt relic: %w", err)
 	}
 	tree.Metadata.LastModified = time.Now().UTC()
 	tree.Metadata.MessageAuthenticationCode, err = cipher.Encrypt(mac, dataKey, tree.Metadata.LastModified.Format(time.RFC3339))
 	if err != nil {
-		return nil, fmt.Errorf("encrypt SOPS MAC: %w", err)
+		return nil, fmt.Errorf("encrypt MAC: %w", err)
 	}
 	output, err := store.EmitEncryptedFile(*tree)
 	if err != nil {
-		return nil, fmt.Errorf("emit encrypted Relic: %w", err)
+		return nil, fmt.Errorf("emit encrypted relic: %w", err)
 	}
 	return output, nil
 }
 
-func encryptDataKey(dataKey []byte, recipient age.Recipient) (string, error) {
+func encryptDataKey(dataKey []byte, publicKey age.Recipient) (string, error) {
 	var buffer bytes.Buffer
 	armored := armor.NewWriter(&buffer)
-	writer, err := age.Encrypt(armored, recipient)
+	writer, err := age.Encrypt(armored, publicKey)
 	if err != nil {
 		return "", err
 	}
@@ -375,8 +391,8 @@ func encryptDataKey(dataKey []byte, recipient age.Recipient) (string, error) {
 	return buffer.String(), nil
 }
 
-func decryptDataKey(envelope string, identities ...age.Identity) ([]byte, error) {
-	reader, err := age.Decrypt(armor.NewReader(strings.NewReader(envelope)), identities...)
+func decryptDataKey(envelope string, privateKeys ...age.Identity) ([]byte, error) {
+	reader, err := age.Decrypt(armor.NewReader(strings.NewReader(envelope)), privateKeys...)
 	if err != nil {
 		return nil, err
 	}
@@ -386,7 +402,7 @@ func decryptDataKey(envelope string, identities ...age.Identity) ([]byte, error)
 	}
 	if len(dataKey) != 32 {
 		clear(dataKey)
-		return nil, fmt.Errorf("invalid SOPS data key length %d", len(dataKey))
+		return nil, fmt.Errorf("invalid relic data key length %d", len(dataKey))
 	}
 	return dataKey, nil
 }

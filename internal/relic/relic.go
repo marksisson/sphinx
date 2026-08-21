@@ -35,13 +35,13 @@ type Header struct {
 
 func (d Document) ValidateHeader() error {
 	if d.Format != FormatVersion {
-		return fmt.Errorf("unsupported Relic format %d", d.Format)
+		return fmt.Errorf("unsupported relic format %d", d.Format)
 	}
 	if d.Schema == "" {
-		return fmt.Errorf("Relic has no schema")
+		return fmt.Errorf("relic has no schema")
 	}
 	if d.Essence == nil {
-		return fmt.Errorf("Relic has no Essence")
+		return fmt.Errorf("relic has no essence")
 	}
 	return nil
 }
@@ -58,7 +58,7 @@ func ParsePlain(data []byte) (*Document, error) {
 	decoder := yaml.NewDecoder(strings.NewReader(string(data)))
 	decoder.KnownFields(true)
 	if err := decoder.Decode(&document); err != nil {
-		return nil, fmt.Errorf("parse Relic: %w", err)
+		return nil, fmt.Errorf("parse relic: %w", err)
 	}
 	if err := document.ValidateHeader(); err != nil {
 		return nil, err
@@ -76,13 +76,13 @@ func ParseHeader(data []byte) (*Header, error) {
 		Inscription map[string]any `yaml:"inscription"`
 	}
 	if err := yaml.Unmarshal(data, &envelope); err != nil {
-		return nil, fmt.Errorf("parse Relic header: %w", err)
+		return nil, fmt.Errorf("parse relic header: %w", err)
 	}
 	if envelope.Format != FormatVersion {
-		return nil, fmt.Errorf("unsupported Relic format %d", envelope.Format)
+		return nil, fmt.Errorf("unsupported relic format %d", envelope.Format)
 	}
 	if envelope.Schema == "" {
-		return nil, fmt.Errorf("Relic has no schema")
+		return nil, fmt.Errorf("relic has no schema")
 	}
 	if envelope.Inscription == nil {
 		envelope.Inscription = make(map[string]any)
@@ -112,7 +112,7 @@ func Filename(root, relicPath string) (string, error) {
 	}
 	resolvedRoot, err := filepath.EvalSymlinks(absoluteRoot)
 	if err != nil {
-		return "", fmt.Errorf("resolve Tomb: %w", err)
+		return "", fmt.Errorf("resolve tomb: %w", err)
 	}
 	current := resolvedRoot
 	for _, segment := range strings.Split(relicPath, "/") {
@@ -125,7 +125,7 @@ func Filename(root, relicPath string) (string, error) {
 			return "", err
 		}
 		if info.Mode()&os.ModeSymlink != 0 {
-			return "", fmt.Errorf("Relic path traverses symlink %s", current)
+			return "", fmt.Errorf("relic path traverses symlink %s", current)
 		}
 	}
 	return filepath.Join(current, "relic.yaml"), nil
@@ -138,7 +138,7 @@ func Read(root, relicPath string) ([]byte, error) {
 	}
 	data, err := os.ReadFile(filename)
 	if err != nil {
-		return nil, fmt.Errorf("read Relic: %w", err)
+		return nil, fmt.Errorf("read relic: %w", err)
 	}
 	return data, nil
 }
@@ -150,7 +150,7 @@ func WriteAtomic(root, relicPath string, data []byte) error {
 	}
 	directory := filepath.Dir(filename)
 	if err := os.MkdirAll(directory, 0o700); err != nil {
-		return fmt.Errorf("create Relic chamber: %w", err)
+		return fmt.Errorf("create relic chamber: %w", err)
 	}
 	temporary, err := os.CreateTemp(directory, ".relic.yaml.*")
 	if err != nil {

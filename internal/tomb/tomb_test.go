@@ -8,7 +8,7 @@ import (
 	"testing"
 )
 
-func TestParse(t *testing.T) {
+func TestParseLocator(t *testing.T) {
 	tests := []struct {
 		input    string
 		location string
@@ -25,13 +25,13 @@ func TestParse(t *testing.T) {
 		{"", "", false, false},
 	}
 	for _, test := range tests {
-		source, err := Parse(test.input)
+		locator, err := ParseLocator(test.input)
 		if (err == nil) != test.valid {
-			t.Errorf("Parse(%q) error = %v, valid=%v", test.input, err, test.valid)
+			t.Errorf("ParseLocator(%q) error = %v, valid=%v", test.input, err, test.valid)
 			continue
 		}
-		if err == nil && (source.location != test.location || source.remote != test.remote) {
-			t.Errorf("Parse(%q) = %#v", test.input, source)
+		if err == nil && (locator.location != test.location || locator.remote != test.remote) {
+			t.Errorf("ParseLocator(%q) = %#v", test.input, locator)
 		}
 	}
 }
@@ -39,7 +39,7 @@ func TestParse(t *testing.T) {
 func TestMaterializeGitTomb(t *testing.T) {
 	repository := t.TempDir()
 	runTestGit(t, repository, "init", "--initial-branch=main")
-	runTestGit(t, repository, "config", "user.name", "Sphinx Test")
+	runTestGit(t, repository, "config", "user.name", "sphinx Test")
 	runTestGit(t, repository, "config", "user.email", "sphinx@example.invalid")
 	if err := os.MkdirAll(filepath.Join(repository, "secrets", "example"), 0o700); err != nil {
 		t.Fatal(err)
@@ -48,12 +48,12 @@ func TestMaterializeGitTomb(t *testing.T) {
 		t.Fatal(err)
 	}
 	runTestGit(t, repository, "add", ".")
-	runTestGit(t, repository, "commit", "-m", "add test Relic")
+	runTestGit(t, repository, "commit", "-m", "add test relic")
 
-	// A local file URL is intentionally not accepted by Parse, but constructing
-	// a Source directly allows an entirely offline materialization test.
-	source := Source{location: "file://" + repository, remote: true}
-	materialized, err := source.Materialize(context.Background(), filepath.Join(t.TempDir(), "cache"), "main", "secrets")
+	// A local file URL is intentionally not accepted by ParseLocator, but constructing
+	// a Locator directly allows an entirely offline materialization test.
+	locator := Locator{location: "file://" + repository, remote: true}
+	materialized, err := locator.Materialize(context.Background(), filepath.Join(t.TempDir(), "cache"), "main", "secrets")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -65,12 +65,12 @@ func TestMaterializeGitTomb(t *testing.T) {
 	}
 }
 
-func TestRejectsUnsafeReferenceAndSubdirectory(t *testing.T) {
-	source := Source{location: "https://github.com/example/tomb.git", remote: true}
-	if _, err := source.Materialize(context.Background(), t.TempDir(), "--upload-pack=evil", "."); err == nil {
-		t.Fatal("unsafe Git reference was accepted")
+func TestRejectsUnsafeGitRefAndSubdirectory(t *testing.T) {
+	locator := Locator{location: "https://github.com/example/tomb.git", remote: true}
+	if _, err := locator.Materialize(context.Background(), t.TempDir(), "--upload-pack=evil", "."); err == nil {
+		t.Fatal("unsafe Git ref was accepted")
 	}
-	if _, err := source.Materialize(context.Background(), t.TempDir(), "main", "../escape"); err == nil {
+	if _, err := locator.Materialize(context.Background(), t.TempDir(), "main", "../escape"); err == nil {
 		t.Fatal("escaping subdirectory was accepted")
 	}
 }

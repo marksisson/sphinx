@@ -1,5 +1,5 @@
 {
-  description = "Sphinx identity-aware secret guardian";
+  description = "sphinx identity-aware secret guardian";
 
   inputs.nixpkgs.url = "github:NixOS/nixpkgs/nixpkgs-unstable";
 
@@ -30,7 +30,7 @@
               --prefix PATH : ${pkgs.lib.makeBinPath [ pkgs.git ]}
           '';
           meta = {
-            description = "Identity-aware guardian for sealed Relics";
+            description = "Identity-aware guardian controlling access to relics";
             homepage = "https://github.com/marksisson/sphinx";
             mainProgram = "sphinx";
             platforms = nixpkgs.lib.platforms.unix;
@@ -66,11 +66,9 @@
         {
           default = pkgs.mkShell {
             packages = with pkgs; [
-              age
               git
               go
               gopls
-              sops
             ];
           };
         }

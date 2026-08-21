@@ -6,8 +6,8 @@ import (
 	"os"
 	"strings"
 
-	"filippo.io/age"
 	"github.com/marksisson/sphinx/internal/keychain"
+	"github.com/marksisson/sphinx/internal/secret"
 	"github.com/spf13/cobra"
 )
 
@@ -19,11 +19,11 @@ type guardianOptions struct {
 func newGuardianCommand() *cobra.Command {
 	command := &cobra.Command{
 		Use:   "guardian",
-		Short: "Manage the Guardian's online age identity",
-		Long: `Manage the Guardian's Keychain-backed online age identity.
+		Short: "Manage the guardian's cryptographic keys",
+		Long: `Manage the guardian's cryptographic keys.
 
-Awaken creates the private identity. Cartouche prints the corresponding public
-age recipient used to seal Relics for this Guardian.`,
+awaken creates and safeguards the guardian's private key. behold displays the
+guardian's public key, which is used to seal relics for this guardian.`,
 		RunE: func(command *cobra.Command, args []string) error {
 			if len(args) != 0 {
 				return fmt.Errorf("unknown command %q for %q", args[0], command.CommandPath())
@@ -31,36 +31,36 @@ age recipient used to seal Relics for this Guardian.`,
 			return command.Help()
 		},
 	}
-	command.AddCommand(newGuardianAwakenCommand(), newGuardianCartoucheCommand())
+	command.AddCommand(newGuardianAwakenCommand(), newGuardianBeholdCommand())
 	return command
 }
 
 func addGuardianFlags(command *cobra.Command, options *guardianOptions) {
-	command.Flags().StringVar(&options.service, "keychain-service", defaultKeychainService, "macOS Keychain service")
-	command.Flags().StringVar(&options.account, "keychain-account", defaultKeychainAccount, "macOS Keychain account")
+	command.Flags().StringVar(&options.service, "keychain-service", defaultKeychainService, "macOS keychain service")
+	command.Flags().StringVar(&options.account, "keychain-account", defaultKeychainAccount, "macOS keychain account")
 }
 
 func newGuardianAwakenCommand() *cobra.Command {
 	var options guardianOptions
 	command := &cobra.Command{
 		Use:   "awaken",
-		Short: "Generate and store the Guardian's online age identity",
+		Short: "generate and store the guardian's private key",
 		Args:  cobra.NoArgs,
 		RunE: func(_ *cobra.Command, _ []string) error {
 			if _, err := keychain.Get(options.service, options.account); err == nil {
-				return fmt.Errorf("a Guardian age identity already exists in Keychain")
+				return fmt.Errorf("the guardian's private key already exists in the Keychain")
 			} else if !errors.Is(err, keychain.ErrNotFound) {
 				return err
 			}
-			identity, err := age.GenerateX25519Identity()
+			privateKey, publicKey, err := secret.GenerateKeyPair()
 			if err != nil {
-				return fmt.Errorf("generate age identity: %w", err)
-			}
-			if err := keychain.Set(options.service, options.account, identity.String()); err != nil {
 				return err
 			}
-			fmt.Println(identity.Recipient().String())
-			fmt.Fprintln(os.Stderr, "Guardian awakened and identity stored in macOS Keychain. Choose and securely retain a recovery passphrase before entombing a Relic.")
+			if err := keychain.Set(options.service, options.account, privateKey); err != nil {
+				return err
+			}
+			fmt.Println(publicKey)
+			fmt.Fprintln(os.Stderr, "guardian awakened and private key stored in the macOS Keychain. Choose and securely retain a recovery passphrase before entombing a relic.")
 			return nil
 		},
 	}
@@ -68,22 +68,22 @@ func newGuardianAwakenCommand() *cobra.Command {
 	return command
 }
 
-func newGuardianCartoucheCommand() *cobra.Command {
+func newGuardianBeholdCommand() *cobra.Command {
 	var options guardianOptions
 	command := &cobra.Command{
-		Use:   "cartouche",
-		Short: "Print the Guardian's public age recipient",
+		Use:   "behold",
+		Short: "print the guardian's public key",
 		Args:  cobra.NoArgs,
 		RunE: func(_ *cobra.Command, _ []string) error {
 			encoded, err := keychain.Get(options.service, options.account)
 			if err != nil {
 				return err
 			}
-			identity, err := age.ParseX25519Identity(strings.TrimSpace(encoded))
+			publicKey, err := secret.DerivePublicKey(strings.TrimSpace(encoded))
 			if err != nil {
-				return fmt.Errorf("parse Keychain age identity: %w", err)
+				return err
 			}
-			fmt.Println(identity.Recipient().String())
+			fmt.Println(publicKey)
 			return nil
 		},
 	}

@@ -4,11 +4,12 @@ import (
 	"fmt"
 	"os"
 
+	tombpkg "github.com/marksisson/sphinx/internal/tomb"
 	"github.com/spf13/cobra"
 )
 
 const (
-	defaultKeychainService = "dev.marksisson.sphinx.age"
+	defaultKeychainService = "dev.marksisson.sphinx.keys"
 	defaultKeychainAccount = "sphinx-v1"
 )
 
@@ -21,30 +22,33 @@ func main() {
 }
 
 func newRootCommand() *cobra.Command {
+	configFile := ""
 	root := &cobra.Command{
 		Use:           "sphinx",
-		Short:         "Protect and reveal sealed Relics",
+		Short:         "protect and reveal relics",
 		SilenceErrors: true,
 		SilenceUsage:  true,
-		Long: `Sphinx is an identity-aware guardian for sealed Relics.
+		Long: `Sphinx is an identity-aware guardian that controls access to relics.
 
-A Tomb contains Chambers, Chambers contain Relics, and each Relic contains an
-encrypted Essence plus a non-secret Inscription.`,
+A tomb contains chambers, chambers contain relics, and each relic contains an
+encrypted essence plus a non-secret inscription.`,
 	}
 	root.AddGroup(
 		&cobra.Group{ID: "sphinx", Title: "Sphinx Commands:"},
 		&cobra.Group{ID: "utility", Title: "Utility Commands:"},
 	)
 
+	root.PersistentFlags().StringVar(&configFile, "config", tombDefaultSettingsPath(), "sphinx configuration file")
+
 	guardian := newGuardianCommand()
 	guardian.GroupID = "sphinx"
-	protect := newProtectCommand()
-	protect.GroupID = "sphinx"
+	tomb := newTombCommand(&configFile)
+	tomb.GroupID = "sphinx"
 	relic := newRelicCommand()
 	relic.GroupID = "sphinx"
 	completion := newCompletionCommand(root)
 	completion.GroupID = "utility"
-	root.AddCommand(guardian, protect, relic, completion)
+	root.AddCommand(guardian, tomb, relic, completion)
 
 	root.InitDefaultHelpCmd()
 	for _, command := range root.Commands() {
@@ -54,6 +58,10 @@ encrypted Essence plus a non-secret Inscription.`,
 		}
 	}
 	return root
+}
+
+func tombDefaultSettingsPath() string {
+	return tombpkg.DefaultSettingsPath()
 }
 
 func newCompletionCommand(root *cobra.Command) *cobra.Command {
