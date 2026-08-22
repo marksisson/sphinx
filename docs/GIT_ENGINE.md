@@ -1,8 +1,8 @@
 # Pure-Go Git Engine Plan
 
-**Status:** Accepted by ADR 0009; implementation in progress
+**Status:** Implemented; accepted by ADR 0009
 
-This document plans replacement of every production invocation of the Git executable with the current `main` branch of [`go-git`](https://github.com/go-git/go-git). Native Git remains a pinned test oracle until differential verification proves that the in-process implementation is equivalent or more conservative at every Sphinx trust boundary.
+This document records the replacement of every production invocation of the Git executable with the pinned [`go-git`](https://github.com/go-git/go-git) engine. Native Git remains only as a pinned test oracle; differential verification demonstrates that the in-process implementation is equivalent or more conservative at every Sphinx trust boundary.
 
 The implementation must preserve Sphinx's existing repository, lock, worktree, byte-integrity, and mutation invariants. It must not add Git authoring behavior: Sphinx still does not initialize repositories, create or switch branches, alter the index, commit, tag, merge, reset, modify remotes, push, or create linked worktrees.
 
@@ -29,7 +29,7 @@ module github.com/go-git/go-git/v6
 go 1.26.0
 ```
 
-Adoption therefore includes upgrading Sphinx's Go directive, Nix toolchain, release toolchain, CI assumptions, module checksums, SBOM expectations, and pinned external test environment to Go 1.26 or newer. The migration cannot merge while the release environment builds with an older toolchain.
+Adoption included upgrading Sphinx's Go directive, Nix toolchain, release toolchain, CI assumptions, module checksums, SBOM expectations, and pinned external test environment to Go 1.26 or newer. The release environment is pinned to Go 1.26.5.
 
 Because `x/` explicitly permits API changes without semantic-version guarantees, every go-git commit update must run the complete differential suite and receive the same review as a security-boundary change. An update that changes experimental APIs, repository interpretation, transport behavior, object hashing, status, or attributes must not be treated as routine dependency maintenance.
 
@@ -489,13 +489,13 @@ The implementation review must answer explicitly:
 
 ## Documentation and decision records
 
-Before production cutover:
+Production cutover completed with:
 
-- add an ADR selecting go-git main, experimental API policy, supported repository formats, and transport/authentication contract;
-- revise the architecture statement that Sphinx may invoke Git to instead specify the in-process Git engine;
-- document conservative rejections in the support matrix;
-- update the threat model for parser, packfile, transport, plugin-registry, SSH-agent, and experimental-API risks;
-- update release documentation to record the go-git commit and prove no Git executable is packaged or required;
-- update `AGENTS.md` with the go-git boundary and dependency-update discipline.
+- ADR 0009 selecting the pinned go-git commit, experimental API policy, supported repository formats, and transport/authentication contract;
+- architecture requirements specifying the in-process Git engine;
+- conservative rejections documented in the support matrix;
+- threat-model coverage for parser, packfile, transport, plugin-registry, SSH-agent, and experimental-API risks;
+- release evidence recording the go-git commit and proving no Git executable is packaged or required; and
+- `AGENTS.md` requirements governing the go-git boundary and dependency-update discipline.
 
-This plan is complete only when the native Git executable is an external test oracle and no longer part of Sphinx's production runtime or package wrapper.
+The migration is complete: native Git is an external test oracle and is no longer part of Sphinx's production runtime or package wrapper.
