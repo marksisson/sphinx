@@ -72,7 +72,7 @@ func newRootCommand(a *app) *cobra.Command {
 	root.PersistentFlags().StringVar(&a.globalConfig, "config", a.globalConfig, "optional global tomb-alias configuration")
 	root.PersistentFlags().BoolVar(&a.json, "json", false, "emit one version-1 JSON envelope")
 	root.PersistentFlags().BoolVar(&a.quiet, "quiet", false, "suppress nonessential human output")
-	root.PersistentFlags().BoolVar(&a.noColor, "no-color", false, "disable color output")
+	root.PersistentFlags().BoolVar(&a.noColor, "no-color", false, "disable color and terminal graphics")
 	root.SetFlagErrorFunc(func(_ *cobra.Command, err error) error { return cliresult.Usage(err) })
 	root.AddGroup(&cobra.Group{ID: "sphinx", Title: "Available Commands:"})
 	primaryCommands := []*cobra.Command{newTombCommand(a), newArtifactCommand(a), newGuardianCommand(a), newDecreeCommand(a), newProclamationCommand(a)}
@@ -82,6 +82,13 @@ func newRootCommand(a *app) *cobra.Command {
 	root.AddCommand(primaryCommands...)
 	root.AddCommand(newCompletionCommand(root))
 	root.SetHelpCommand(newHelpCommand(root, a))
+	textHelp := root.HelpFunc()
+	root.SetHelpFunc(func(command *cobra.Command, args []string) {
+		if command == root {
+			a.writeRootGraphic(command.OutOrStdout())
+		}
+		textHelp(command, args)
+	})
 	return root
 }
 
@@ -112,7 +119,13 @@ func newHelpCommand(root *cobra.Command, a *app) *cobra.Command {
 			return err
 		}
 		text := rendered.String()
-		return a.success(map[string]any{"help": text}, func(w io.Writer) error { _, err := io.WriteString(w, text); return err }, nil)
+		return a.success(map[string]any{"help": text}, func(w io.Writer) error {
+			if target == root {
+				a.writeRootGraphic(w)
+			}
+			_, err := io.WriteString(w, text)
+			return err
+		}, nil)
 	}}
 }
 

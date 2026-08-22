@@ -640,6 +640,7 @@ Rules:
 - If decrypted stdout is a terminal, Sphinx emits a conspicuous stderr warning and requires controlling-terminal confirmation before emitting any secret. Piped stdout requires no extra confirmation. Secret values MUST NOT appear in diagnostics, errors, logs, terminal titles, or progress output.
 - Artifact/decree/guardian/proclamation authoring requires a controlling terminal. Initial authoring rejects piped stdin, absent TTYs, command-line secret values, secret/proclamation environment variables, input files, and caller-supplied file descriptors. Reveal output may still be piped by the caller.
 - Sphinx emits ordinary ephemeral diagnostics to stderr but creates no persistent event files, database, history, command, or configuration.
+- Human root help written directly to a terminal MAY issue a bounded Kitty graphics-protocol capability query and display a compiled-in public Sphinx image only after receiving the matching successful response. The probe and image MUST be omitted for redirected output, JSON, quiet mode, `TERM=dumb`, and `--no-color`; timeout, malformed response, unsupported terminals, and I/O errors silently retain deterministic text help. No terminal name or vendor environment variable is treated as proof of protocol support.
 
 Sphinx only edits and validates caller-managed worktrees. Git initialization, branches, staging, commits, commit/tag signing, pushes, pull requests, merges, resets, and restores remain entirely caller-managed.
 

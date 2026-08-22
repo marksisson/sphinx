@@ -96,7 +96,7 @@ Decrypted values are emitted only on stdout. All-secret human output is a secret
 
 Before any command body executes, Sphinx must set and verify both macOS soft and hard core-file size limits as zero and fail closed if that control cannot be established. Application initialization captures `SPHINX_GUARDIAN` once and removes it before command parsing; private material is still considered resident in process memory until exit. No handled error, diagnostic, warning, completion, or subprocess receives secret values.
 
-`--json` emits one deterministic newline-terminated version-1 success object on stdout or one error object on stderr. Errors contain stable identifiers and no secret values. Handled failures use the documented BSD `sysexits` subset; no handled path intentionally exits 1. Completion is the sole non-envelope command.
+`--json` emits one deterministic newline-terminated version-1 success object on stdout or one error object on stderr. Errors contain stable identifiers and no secret values. Handled failures use the documented BSD `sysexits` subset; no handled path intentionally exits 1. Completion is the sole non-envelope command. Human root help may render a compiled-in public image only after a bounded successful Kitty graphics-protocol query; redirected, JSON, quiet, `TERM=dumb`, `--no-color`, unsupported, and failed-probe cases remain text-only without terminal-vendor assumptions.
 
 Inspection performs no identity lookup or decryption, exposes only readable public fields, sets `verified: false`, and always emits `unverified_inscriptions`. Artifact validation follows the authenticated reveal path but emits no secrets.
 
