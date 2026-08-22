@@ -25,8 +25,28 @@ if rg -n -i -g '*.go' -g '!**/*_test.go' -g '!**/eff_large_wordlist.txt' "$retir
   echo 'retired implementation vocabulary remains in production Go code' >&2
   exit 1
 fi
-if rg -n -g '*.go' -g '!**/*_test.go' 'net/http|ListenAndServe|http\.Server|http\.Client|WhoIs\(' cmd internal; then
-  echo 'network listener, HTTP client, or remote-peer identity implementation remains' >&2
+if rg -n -g '*.go' -g '!**/*_test.go' -g '!internal/git/transport/**' 'net/http|ListenAndServe|http\.Server|http\.Client|WhoIs\(' cmd internal; then
+  echo 'network listener, unauthorized HTTP client, or remote-peer identity implementation remains' >&2
+  exit 1
+fi
+if rg -n -g '*.go' -g '!**/*_test.go' 'ListenAndServe|http\.Server|net\.Listen\(' internal/git/transport; then
+  echo 'Git transport package contains a listener or server' >&2
+  exit 1
+fi
+if rg -n -g '*.go' -g '!**/*_test.go' '"os/exec"|exec\.Command' cmd internal; then
+  echo 'production Go code contains an external-process execution path' >&2
+  exit 1
+fi
+if [[ -e internal/git/env ]]; then
+  echo 'transitional Git subprocess environment package remains' >&2
+  exit 1
+fi
+if rg -n -g '*.go' -g '!**/*_test.go' -g '!internal/testgit/**' 'internal/testgit' cmd internal; then
+  echo 'production Go code imports the native-Git test oracle' >&2
+  exit 1
+fi
+if rg -n -g '*.go' -g '!**/*_test.go' -g '!internal/git/**' 'github.com/go-git/' cmd internal; then
+  echo 'production package outside internal/git imports go-git' >&2
   exit 1
 fi
 if rg -n -g '*.go' -g '!**/*_test.go' 'internal/(audit|identity|policy|relic|secret|server)(["/])' .; then
@@ -54,6 +74,8 @@ fi
 
 systems=$(nix eval --json "path:$PWD#packages" --apply builtins.attrNames)
 [[ "$systems" == '["aarch64-darwin"]' ]]
+[[ $(nix develop -c go env GOVERSION) == 'go1.26.5' ]]
+[[ $(nix develop -c git --version) == 'git version 2.55.0' ]]
 
 nix develop -c gofmt -w cmd internal scripts/generate-sbom.go
 nix develop -c go mod tidy
@@ -124,6 +146,11 @@ done
 nix develop -c go vet ./...
 nix develop -c ./scripts/verify-release-candidate.sh
 nix flake check "path:$PWD"
+runtime_package=$(nix build "path:$PWD" --no-link --print-out-paths)
+if nix-store -q --references "$runtime_package" | grep -Eq '/[^/]*git([.-]|$)'; then
+  echo 'runtime Nix package retains a Git executable reference' >&2
+  exit 1
+fi
 git diff --check
 
 echo 'Sphinx tests, races, fuzzing, interoperability, security, CLI, and release-candidate gates verified'

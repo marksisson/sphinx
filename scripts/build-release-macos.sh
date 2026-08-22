@@ -11,6 +11,7 @@ esac
 : "${SPHINX_CODESIGN_IDENTITY:?set SPHINX_CODESIGN_IDENTITY to a Developer ID Application identity}"
 : "${SPHINX_NOTARY_PROFILE:?set SPHINX_NOTARY_PROFILE to an xcrun notarytool Keychain profile}"
 for tool in go git codesign xcrun hdiutil file otool shasum spctl; do command -v "$tool" >/dev/null || { echo "missing release tool: $tool" >&2; exit 69; }; done
+[[ $(go env GOVERSION) == 'go1.26.5' ]] || { echo 'release requires Go 1.26.5' >&2; exit 69; }
 
 if [[ -n $(git status --porcelain) ]]; then
   echo 'release source tree must be clean' >&2
@@ -39,7 +40,7 @@ codesign --force --options runtime --timestamp --sign "$SPHINX_CODESIGN_IDENTITY
 codesign --verify --deep --strict --verbose=2 "$out/sphinx"
 codesign -d --verbose=4 "$out/sphinx" 2>"$out/codesign.txt"
 
-"$out/sphinx" completion bash >/dev/null
+/usr/bin/env -i HOME="$HOME" PATH= "$out/sphinx" completion bash >/dev/null
 stage=$(mktemp -d "$out/.dmg-stage.XXXXXXXX")
 trap 'rm -rf "$stage"' EXIT
 cp "$out/sphinx" "$stage/sphinx"
@@ -53,6 +54,10 @@ codesign --verify --strict --verbose=2 "$out/sphinx-$version-darwin-arm64.dmg"
 spctl --assess --type open --context context:primary-signature --verbose=2 "$out/sphinx-$version-darwin-arm64.dmg" 2>"$out/gatekeeper.txt"
 
 go run ./scripts/generate-sbom.go "$out/sphinx" "$version" "$out/sphinx-$version.sbom.cdx.json"
+grep -Fq '"name": "github.com/go-git/go-git/v6"' "$out/sphinx-$version.sbom.cdx.json"
+grep -Fq '"version": "v6.0.0-alpha.5.0.20260821142625-374c354884f1"' "$out/sphinx-$version.sbom.cdx.json"
+grep -Fq '"name": "github.com/cloudflare/circl"' "$out/sphinx-$version.sbom.cdx.json"
+grep -Fq '"version": "v1.6.3"' "$out/sphinx-$version.sbom.cdx.json"
 (
   cd "$out"
   shasum -a 256 sphinx "sphinx-$version-darwin-arm64.dmg" "sphinx-$version.sbom.cdx.json" > SHA256SUMS
@@ -61,6 +66,8 @@ go run ./scripts/generate-sbom.go "$out/sphinx" "$version" "$out/sphinx-$version
 cat >"$out/RELEASE.txt" <<EOF
 Sphinx $version
 source_commit: $source_commit
+go_toolchain: go1.26.5
+go_git_commit: 374c354884f12ea0a8f80ae9c429a44a33ba4bb1
 platform: darwin/arm64
 artifact: sphinx-$version-darwin-arm64.dmg
 signature: Developer ID hardened runtime
