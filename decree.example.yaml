@@ -1,10 +1,17 @@
 version: 1
+generation: 7
+artifact_locks:
+  - chamber: production/api
+    sha256: "0000000000000000000000000000000000000000000000000000000000000000"
+schema_locks:
+  - schema: credential/v1
+    sha256: "1111111111111111111111111111111111111111111111111111111111111111"
 rules:
-  - name: personal-admin
-    paths:
-      - "**"
-    tailscale:
-      # Replace this with the seeker LoginName returned by `tailscale whois`.
+  - name: platform-production
+    seekers:
       logins:
-        - "user@example.com"
-      tags: []
+        - alice@example.com
+      tags:
+        - tag:production
+    artifacts:
+      - production/**

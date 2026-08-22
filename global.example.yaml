@@ -1,0 +1,5 @@
+# Example manually managed ${XDG_CONFIG_HOME:-$HOME/.config}/sphinx/config.yaml
+version: 1
+tombs:
+  company:
+    reference: "github:example/company-tomb?ref=main"

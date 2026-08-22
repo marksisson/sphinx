@@ -1,130 +1,161 @@
-# relic Schemas
+# Tomb schemas and artifacts
 
-A tomb stores versioned, declarative schema definitions below `.sphinx/schemas/`.
-Schemas drive secure prompts, validation, help, and shell completion. They never
-execute commands or templates and cannot change sphinx's encryption policy or a
-decree.
+Schemas are immutable-per-artifact, tomb-local definitions. A reference `name/vN` resolves only to `.tomb/schemas/name/vN.yaml` in the same exact Git commit as the artifact.
 
-## Definition
+## Strict YAML
+
+Every schema and artifact must be UTF-8 without BOM, use LF line endings, and end with exactly one LF. Sphinx rejects unknown fields, duplicate mapping keys, anchors, aliases, custom tags, merge keys, non-string mapping keys, and multiple documents.
+
+## Schema path and identity
+
+A schema named `credential` at version `1` is stored exactly at:
+
+```text
+.tomb/schemas/credential/v1.yaml
+```
+
+Its contents identify the same reference:
 
 ```yaml
-name: anthropic-api-key
 version: 1
-description: Anthropic API credential
-
-essence:
-  - name: api_key
+name: credential
+description: API credential with operational metadata
+secrets:
+  - name: token
     type: string
     required: true
-    prompt: Anthropic API key
-
-inscription:
-  - name: environment
-    type: enum
-    values: [development, staging, production]
+    prompt: Token
+  - name: enabled
+    type: boolean
     required: true
-    prompt: Environment
+    prompt: Enabled
+inscriptions:
   - name: owner
     type: string
     required: true
     prompt: Owning team
+  - name: environment
+    type: enum
+    required: true
+    prompt: Environment
+    values:
+      - development
+      - staging
+      - production
 ```
 
-A schema reference combines its name and version:
+Schema names match lowercase `[a-z][a-z0-9-]*`. Versions are positive integers encoded as `vN` in the path/reference. Field names match `[A-Za-z_][A-Za-z0-9_]*` and must be unique across both containers.
 
-```text
-anthropic-api-key/v1
-```
+## Field grammar
 
-Supported field types are `string`, `integer`, `boolean`, and `enum`. Field
-names are single segments and must be unique across essence and inscription.
-Schema changes should use a new version rather than changing the meaning of an
-existing version.
+Every field requires:
 
-## relic format
+- `name`
+- `type`
+- `required`
+- non-empty `prompt`
 
-Each relic is stored at `PATH/relic.yaml`:
+Supported types are:
+
+| Type | Artifact value |
+|---|---|
+| `string` | YAML string |
+| `integer` | YAML integer |
+| `boolean` | YAML boolean |
+| `enum` | YAML string exactly equal to one unique `values` entry |
+
+Only enum fields may contain `values`, and an enum requires at least one value. Values are not coerced. Null, floating-point, timestamp, binary, mapping, and sequence values are rejected.
+
+A required field must exist. A required string or enum cannot be empty because SOPS does not produce an encrypted scalar for an empty string. Optional omitted fields are absent rather than null.
+
+## Artifact shape
+
+An artifact is always `CHAMBER/artifact.yaml`. Its decrypted domain shape is:
 
 ```yaml
 format: 1
-schema: anthropic-api-key/v1
-inscription:
-  environment: development
+schema: credential/v1
+secrets:
+  token: example-value
+  enabled: true
+inscriptions:
   owner: platform
-essence:
-  api_key: ENC[AES256_GCM,...]
-recovery:
-  type: passphrase-v1
-  encrypted_data_key: <encrypted>
-# sphinx-managed public-key wrapping and MAC metadata follows
+  environment: production
 ```
 
-sphinx always encrypts the complete `essence` branch. `format`, `schema`,
-`inscription`, and the recovery envelope remain repository-visible but are
-covered by the MAC. The sphinx-managed encryption metadata wraps the data key
-for the guardian public key; the corresponding private key is stored in macOS
-Keychain. The separate recovery envelope wraps the same data key using the
-recovery passphrase.
+The stored document includes a SOPS mapping. Only the complete top-level `secrets` mapping is encrypted, using exact `encrypted_regex: ^secrets$`. `inscriptions` remain readable for inspection but are not trusted until authenticated decryption verifies the normal SOPS MAC.
 
-A tomb's `.sphinx/tomb.yaml` binds all relics to the same guardian public key
-and recovery passphrase mechanism. It contains an encrypted passphrase check
-but never the passphrase.
+Every stored artifact has exactly one proclamation recipient and zero or more unique native hybrid guardian recipients. Sphinx rejects unsupported recipient types, groups, thresholds, duplicates, malformed armor, and non-native stanzas.
 
-## Commands
+An artifact’s schema reference cannot be changed after creation. Create a replacement artifact if a different schema is needed.
 
-```console
-sphinx relic entomb --schema anthropic-api-key/v1 services/anthropic
-sphinx relic inspect services/anthropic
-sphinx relic inscribe services/anthropic
-sphinx relic reseal services/anthropic
-sphinx relic reveal services/anthropic --facet api_key
-sphinx relic reveal --recovery --tomb ./secrets services/anthropic --facet api_key
+## Authoring lifecycle
+
+Create a schema before initializing tomb metadata:
+
+```sh
+mkdir -p .tomb/schemas/credential
+$EDITOR .tomb/schemas/credential/v1.yaml
+sphinx decree init --tomb path:/absolute/path/to/tomb
 ```
 
-`entomb` refuses to overwrite an existing relic. `reseal` requires an existing
-relic and rotates its data key. Both require the tomb recovery passphrase.
-`inscribe` changes only repository-visible metadata and retains the existing
-data key and recovery envelope.
+Create an artifact interactively:
 
-essence prompts disable terminal echo. Recovery passphrases are accepted only
-from a terminal, never from an argument, environment variable, JSON input, or
-standard input.
-
-## Non-interactive values
-
-Automation can supply structured values as JSON while the recovery passphrase
-is still read from the terminal:
-
-```console
-sphinx relic entomb \
-  --schema anthropic-api-key/v1 \
-  --from-json ./values.json \
-  services/anthropic
+```sh
+sphinx artifact create \
+  --tomb path:/absolute/path/to/tomb \
+  --schema credential/v1 \
+  production/api
 ```
 
-```json
-{
-  "essence": {
-    "api_key": "sk-ant-example"
-  },
-  "inscription": {
-    "environment": "development",
-    "owner": "platform"
-  }
-}
+Sphinx reads values only through the controlling terminal. It validates the schema before encryption, creates a proclamation-only artifact with a fresh data key, and atomically updates the signed exhaustive locks.
+
+Update one readable value:
+
+```sh
+sphinx artifact set-inscription \
+  --tomb path:/absolute/path/to/tomb \
+  --inscription owner \
+  production/api
 ```
 
-A JSON file contains plaintext essence and must be handled accordingly.
-`--stdin` avoids a persistent input file. Neither form accepts the recovery
-passphrase.
+Replace all secrets or one named secret:
 
-## Completion
-
-Generate completion for the active shell, for example:
-
-```console
-source <(sphinx completion zsh)
+```sh
+sphinx artifact reseal --tomb path:/absolute/path/to/tomb production/api
+sphinx artifact reseal \
+  --tomb path:/absolute/path/to/tomb \
+  --secret token \
+  production/api
 ```
 
-Completion discovers schema references, existing relic paths, and valid facets
-from the selected relic's schema.
+Each inscription update and reseal generates a fresh independent data key and re-encrypts every secret. Guardian recipient changes do the same for each selected artifact.
+
+Delete only through the signed transaction boundary:
+
+```sh
+sphinx artifact delete --tomb path:/absolute/path/to/tomb production/api
+```
+
+Sphinx asks for confirmation and proclamation authorization, deletes the exact artifact path, and regenerates decree locks/signature atomically.
+
+## Validation and inspection
+
+```sh
+sphinx tomb validate path:/absolute/path/to/tomb
+sphinx artifact validate --tomb default production/api
+sphinx artifact inspect --tomb default production/api
+```
+
+Worktree tomb validation requires the proclamation and authenticates every artifact against its schema. Artifact validation on an enrolled tomb performs live seeker authorization and guardian decryption but emits no secret values. Inspection performs no decryption and always warns that readable inscriptions are unverified.
+
+## Schema changes
+
+An existing artifact pins its schema reference, while the decree pins exact schema bytes. Editing a referenced schema therefore requires proclamation-authorized `decree sign` and must leave every locked artifact valid under that schema:
+
+```sh
+$EDITOR .tomb/schemas/credential/v1.yaml
+sphinx decree sign --tomb path:/absolute/path/to/tomb
+```
+
+Editable decree/schema paths must be unstaged. Sphinx snapshots and guards them but never modifies the Git index. If a change would invalidate any artifact, signing fails without installing signed state.

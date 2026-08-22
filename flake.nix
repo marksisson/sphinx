@@ -1,16 +1,12 @@
 {
-  description = "sphinx identity-aware secret guardian";
+  description = "Sphinx CLI for proclamation-signed Git tombs";
 
   inputs.nixpkgs.url = "github:NixOS/nixpkgs/nixpkgs-unstable";
 
   outputs =
     { nixpkgs, ... }:
     let
-      systems = [
-        "aarch64-darwin"
-        "aarch64-linux"
-        "x86_64-linux"
-      ];
+      systems = [ "aarch64-darwin" ];
       forAllSystems = nixpkgs.lib.genAttrs systems;
       pkgsFor = system: import nixpkgs { inherit system; };
       sphinxFor =
@@ -23,17 +19,20 @@
           version = "0.1.0";
           src = ./.;
           subPackages = [ "cmd/sphinx" ];
-          vendorHash = "sha256-xwkkLn5Ss4A86PukLHIYmX5loGsuNtSs+lMh+lyH8XU=";
-          nativeBuildInputs = [ pkgs.makeWrapper ];
+          vendorHash = "sha256-Pq1ePAmVbV6BUJDjsVl7zTXkC+aeUpLcAfKx7gH/F0o=";
+          nativeBuildInputs = [
+            pkgs.git
+            pkgs.makeWrapper
+          ];
           postInstall = ''
             wrapProgram "$out/bin/sphinx" \
               --prefix PATH : ${pkgs.lib.makeBinPath [ pkgs.git ]}
           '';
           meta = {
-            description = "Identity-aware guardian controlling access to relics";
+            description = "Local CLI for signed Git tombs and identity-aware artifact reveal";
             homepage = "https://github.com/marksisson/sphinx";
             mainProgram = "sphinx";
-            platforms = nixpkgs.lib.platforms.unix;
+            platforms = [ "aarch64-darwin" ];
           };
         };
     in

@@ -1,217 +1,176 @@
-# sphinx
+# Sphinx
 
-sphinx is an identity-aware guardian that controls access to relics.
+Sphinx is a macOS Apple Silicon command-line tool for storing schema-conforming encrypted artifacts in Git tombs and revealing their secrets to authorized Tailscale seekers.
 
-> A **sphinx** guards **tombs**. tombs contain **chambers**, and chambers hold **relics**. A **seeker** or **envoy** answers a **riddle** to prove its identity. **decrees** determine whether passage is granted, and each judgment is recorded in the **chronicle**.
+The initial release is synchronous and local. It has no network listener, background process, persistent identity cache, or local event log. Every reveal verifies the project’s exact commit lock, proclamation trust chain, signed decree, exhaustive artifact and schema hashes, fresh tailscaled LocalAPI identity, guardian recipient, SOPS MAC, and schema before writing plaintext only to stdout.
 
-See the [PRD](docs/PRD.md), [relic schema guide](docs/SCHEMAS.md), and [canonical terminology](docs/TERMINOLOGY.md).
+## Platform
 
-## Status
+- macOS on Apple Silicon (`darwin/arm64`)
+- Git
+- tailscaled running and connected for every reveal
 
-This is an early MVP for a Mac temple on a private Tailscale network. It supports:
+Runtime artifact cryptography is native and in-process. External age and SOPS programs are not used.
 
-- macOS Keychain storage for sphinx's guardian private key
-- schema-driven `entomb`, `inspect`, `inscribe`, `reseal`, and `reveal` commands
-- authenticated in-process encryption and decryption
-- Keychain-backed guardian-key decryption plus a user-chosen recovery incantation (passphrase)
-- schema- and relic-aware shell completion
-- local directories and explicitly locked remote Git repositories as tombs
-- tomb locators with GitHub and Git branch, tag, commit, pull-request, and subdirectory selectors
-- named tomb configuration plus explicit `tomb update`, `tomb status`, and `tomb protect` lifecycle commands
-- Tailscale `WhoIs` as an identity-provider-agnostic riddle
-- path-based decrees
-- JSONL chronicle entries
-- structured essence facets and non-secret inscriptions
+## Build
 
-
-## Build and test
-
-```console
-nix flake check
+```sh
 nix build
+nix run . -- --help
 ```
 
-Or run directly from GitHub:
+The flake exports packages, apps, checks, development shells, and a formatter only for `aarch64-darwin`.
 
-```console
-nix run github:marksisson/sphinx -- help
-```
+## Core model
 
-## awaken the guardian
+- A **tomb** is a Git repository.
+- A **chamber** is an exact case-sensitive path containing `artifact.yaml`.
+- An **artifact** contains encrypted `secrets`, readable `inscriptions`, a tomb-local schema reference, and SOPS metadata.
+- A **guardian** is a credential-provider-backed native hybrid age identity.
+- A **proclamation** is a generated ten-word administrative credential used to sign tomb state and authorize mutations.
+- A **seeker** is the current live Tailscale login and/or device tag.
+- A **decree** is the signed allow-only reveal policy plus exhaustive artifact and schema locks.
 
-```console
-nix run . -- guardian awaken
-nix run . -- guardian behold
-```
+Decree enforcement is advisory for conforming Sphinx use. Credential providers safeguard guardian identities; anyone who independently obtains a guardian identity can use compatible cryptographic tooling outside Sphinx.
 
-`guardian awaken` generates the guardian's private key, stores it in the login Keychain, and prints its public key. `guardian behold` prints the public key again. sphinx never generates or stores the tomb recovery incantation; the user supplies it securely when entombing or resealing a relic.
-
-## Write a decree
-
-```console
-cp decree.example.yaml decree.yaml
-chmod 600 decree.yaml
-```
-
-Replace the example login with the `LoginName` reported by Tailscale for the seeker. Keep the operational decree outside the tomb so tomb writers cannot grant themselves passage.
-
-## Define a schema and entomb a relic
-
-Each tomb stores declarative schemas below `.sphinx/schemas/`. For example:
-
-```yaml
-name: anthropic-api-key
-version: 1
-description: Anthropic API credential
-essence:
-  - name: api_key
-    type: string
-    required: true
-    prompt: Anthropic API key
-inscription:
-  - name: environment
-    type: enum
-    values: [development, staging, production]
-    required: true
-```
-
-Create the first relic interactively:
-
-```console
-nix run . -- relic entomb \
-  --tomb /absolute/path/to/secrets \
-  --schema anthropic-api-key/v1 \
-  services/anthropic
-```
-
-sphinx securely prompts for essence fields and for a user-chosen recovery incantation. The first `entomb` creates `.sphinx/tomb.yaml`, which binds the tomb to exactly one guardian public key and one passphrase recovery mechanism. Every relic is stored as `PATH/relic.yaml`.
-
-Administrative operations are:
-
-```console
-sphinx relic inspect services/anthropic
-sphinx relic inscribe services/anthropic
-sphinx relic reseal services/anthropic
-```
-
-`inspect` shows only the schema and non-secret inscription. `inscribe` retains the essence and recovery wrapping. `reseal` replaces the essence, verifies the recovery incantation, and rotates the relic data key.
-
-## Configure and protect a tomb
-
-Copy the operational configuration outside the tomb and restrict its permissions:
-
-```console
-mkdir -p "$HOME/Library/Application Support/sphinx"
-cp sphinx.example.yaml "$HOME/Library/Application Support/sphinx/config.yaml"
-chmod 600 "$HOME/Library/Application Support/sphinx/config.yaml"
-```
-
-A configuration can define multiple named tombs and one default:
-
-```yaml
-version: 1
-default_tomb: production
-tombs:
-  production:
-    locator: github:example/secrets-tomb/main?dir=secrets
-    lock: ./production.tomb.lock.yaml
-    decree: ./decree.yaml
-    chronicle: ~/Library/Logs/sphinx-production.jsonl
-    listen: 127.0.0.1:8787
-```
-
-For a remote tomb, explicitly resolve, validate, and approve the mutable tomb
-locator before protecting it:
-
-```console
-sphinx tomb update production
-sphinx tomb status production
-sphinx tomb protect production
-```
-
-`tomb update` is the only command that advances the mode-`0600` lock. It
-materializes the candidate, validates the tomb configuration, schemas, relic
-headers, public-key bindings, paths, symlinks, and size limits, then records the
-resolved commit. `tomb protect` ignores mutable branch movement and serves only
-the exact locked commit. A daemon restart is required to serve a newly approved
-lock in v1.
-
-tomb locators use a deliberately restricted syntax:
+## Tomb layout
 
 ```text
-github:OWNER/REPOSITORY
-github:OWNER/REPOSITORY/BRANCH-OR-TAG
-github:OWNER/REPOSITORY/pull/123/head
-github:OWNER/REPOSITORY/FULL-COMMIT
-github:OWNER/REPOSITORY/main?dir=secrets
-git+https://github.com/OWNER/REPOSITORY.git?ref=main&dir=secrets
-git+ssh://git@github.com/OWNER/REPOSITORY.git?ref=main
+.tomb/
+  tomb.yaml
+  decree.yaml
+  decree.yaml.sig
+  rotations/
+    .keep
+    00000001.yaml
+    00000001.from.sig
+    00000001.to.sig
+  schemas/
+    credential/
+      v1.yaml
+production/
+  api/
+    artifact.yaml
 ```
 
-Generic HTTP files and tarballs are not accepted. Private HTTPS tombs require a
-configured Git credential helper. Private SSH tombs require non-interactive SSH
-credentials available to the LaunchAgent. Local tomb locators can be filesystem
-paths and do not need a lock.
+Managed files are exact regular Git blobs. Sphinx never initializes a repository, stages files, creates commits or tags, signs Git objects, changes branches, pushes, merges, or modifies an immutable cache. Administrative mutations require an explicit caller-managed `path:` worktree.
 
-## reveal a relic
+## Initialize a tomb
 
-Locally:
+Create a Git repository and add at least one schema at `.tomb/schemas/NAME/vN.yaml`; see [docs/SCHEMAS.md](docs/SCHEMAS.md). Then run:
 
-```console
-nix run . -- relic reveal openai/api/key
+```sh
+sphinx decree init --tomb path:/absolute/path/to/tomb
 ```
 
-Through private Tailscale Serve:
+Sphinx generates and confirms the proclamation through the controlling terminal and installs the initial default-deny signed metadata transactionally. Commit the resulting files yourself.
 
-```console
-nix run . -- relic reveal \
-  --server https://YOUR-TEMPLE.YOUR-TAILNET.ts.net \
-  openai/api/key
+Create a proclamation-only artifact interactively:
+
+```sh
+sphinx artifact create \
+  --tomb path:/absolute/path/to/tomb \
+  --schema credential/v1 \
+  production/api
 ```
 
-reveal one structured essence facet with `--facet`:
+Add a guardian recipient after creating a provider record:
 
-```console
-nix run . -- relic reveal --facet api_key services/anthropic
+```sh
+sphinx guardian create workstation
+sphinx guardian add \
+  --tomb path:/absolute/path/to/tomb \
+  workstation production/api
 ```
 
-Recovery bypasses the daemon and decrypts a local tomb after a secure recovery-incantation prompt:
+Commit the encrypted artifact and regenerated decree/signature yourself.
 
-```console
-nix run . -- relic reveal \
-  --recovery \
-  --tomb /absolute/path/to/secrets \
-  --facet api_key \
-  services/anthropic
+## Sign reveal policy
+
+Edit only `.tomb/decree.yaml` rules and, when needed, tomb-local schemas. Do not stage those edits before signing. Sphinx replaces the editor-visible generation and lock lists:
+
+```sh
+sphinx decree sign --tomb path:/absolute/path/to/tomb
 ```
 
-The client prints essence to stdout. Treat terminal scrollback and redirected output as sensitive. A future `relic exec` operation will reduce accidental exposure.
+A seeker matches when either an exact Tailscale login or an exact `tag:` device tag in an allow rule matches. No matching rule means deny.
 
-## Shell completion
+## Enroll and reveal
 
-```console
-source <(sphinx completion zsh)
+From a consuming Git project:
+
+```sh
+sphinx tomb add --name default github:example/company-tomb?ref=main
 ```
 
-Completion is available for bash, zsh, fish, and PowerShell. It discovers schema references, existing relic paths, and schema-defined essence facets.
+Enrollment validates the complete tomb and asks you to approve its proclamation fingerprint. It atomically writes the exact commit, fingerprint, decree generation, timestamp, and guardian selections to `<project-git-root>/.sphinx/config.yaml`.
 
-## Run as a LaunchAgent
+Configure a matching guardian selection in that project file, then reveal:
 
-1. Run sphinx interactively so macOS can grant Keychain access.
-2. Adapt `launchd/dev.marksisson.sphinx.plist.example`.
-3. Configure Tailscale Serve to expose `127.0.0.1:8787` privately over HTTPS.
-4. Keep Tailscale Funnel disabled and restrict access with tailnet ACLs.
+```sh
+sphinx artifact reveal --tomb default production/api
+sphinx artifact reveal --tomb default --secret token production/api
+```
 
-## Security properties
+All-secret human output is a secrets-only YAML document. A selected value is emitted as one canonical scalar with no added newline. If stdout is a terminal, Sphinx warns and asks for confirmation before writing plaintext. There are no clipboard, output-file, temporary-file, dedicated-descriptor, or child-process output modes.
 
-- The API fails closed when Tailscale cannot identify a petitioner.
-- Only sphinx's configured encryption format is handled.
-- The guardian private key is loaded from Keychain without a private-key file or environment variable.
-- Recovery uses a passphrase read from a terminal with echo disabled.
-- Every tomb is bound to one guardian public key and one recovery passphrase mechanism.
-- sphinx owns its encryption policy internally; tombs cannot override it.
-- tomb locators, Git refs, checkout subdirectories, and symlinks are validated; tarballs and generic HTTP locators are rejected.
-- Remote tombs fail closed without a matching lock, and protection checks the materialized commit against the locked revision.
-- Mutable update candidates and immutable protected revisions use separate checkouts.
-- Every allow or deny judgment is appended to the chronicle.
-- chronicle entries never contain essence.
+Readable inscriptions can be inspected without decryption:
+
+```sh
+sphinx artifact inspect --tomb default production/api
+```
+
+Inspection always warns that inscriptions are unverified until normal authenticated decryption checks the SOPS MAC.
+
+## Update and recovery
+
+```sh
+sphinx tomb update default
+sphinx tomb validate default
+sphinx tomb validate path:/absolute/path/to/tomb
+sphinx tomb recover path:/absolute/path/to/tomb --rollback
+```
+
+Updates require descendant commits and validate proclamation transitions and monotonic decree generations before changing project locks. Recovery is proclamation-authorized and restores only journaled exact paths when their state still matches a recorded image; it never performs repository-wide Git recovery.
+
+## Guardians and proclamation rotation
+
+The macOS default provider is `apple-icloud-keychain`; `apple-login-keychain` is explicit. `environment` reads one `SPHINX_GUARDIAN` value, captures it once and removes it from the process environment before command parsing, and cannot be mutated.
+
+```sh
+sphinx guardian list
+sphinx guardian show workstation
+sphinx guardian remove --tomb path:/absolute/path/to/tomb workstation --all
+sphinx proclamation rotate --tomb path:/absolute/path/to/tomb
+```
+
+Removing a recipient does not revoke values revealed previously. Proclamation rotation re-encrypts every artifact with independent fresh data keys and installs a cross-signed trust transition in one transaction.
+
+## Configuration and references
+
+The optional global alias file is `${XDG_CONFIG_HOME:-$HOME/.config}/sphinx/config.yaml` and is manually managed. Sphinx does not mutate it. Project configuration is always `<git-root>/.sphinx/config.yaml`; omitting `--tomb` selects the alias exactly `default`.
+
+Supported tomb references are:
+
+- `github:OWNER/REPOSITORY`
+- `git+https://HOST/PATH`
+- `git+ssh://HOST/PATH`
+- `path:/absolute/worktree`
+
+A reference may have one `?ref=` or `?rev=` selector, never both. References identify repositories only.
+
+## Security and release operations
+
+Before any command body executes, Sphinx sets and verifies the macOS soft and hard core-file size limits as zero. It fails closed if this process control cannot be established. Secrets and proclamation text never enter command arguments; decrypted output still inherits the security of the caller-selected stdout destination.
+
+- [Phase 8 threat-model review](docs/security/THREAT_MODEL_REVIEW.md)
+- [Support and interoperability matrix](docs/release/SUPPORT_MATRIX.md)
+- [Release procedure](docs/release/RELEASE.md)
+- [Transaction recovery](docs/operations/RECOVERY.md)
+- [Guardian compromise](docs/operations/GUARDIAN_COMPROMISE.md)
+- [Proclamation rotation](docs/operations/PROCLAMATION_ROTATION.md)
+- [Rollback guidance](docs/operations/ROLLBACK.md)
+
+The production release procedure in `scripts/build-release-macos.sh` requires a Developer ID Application identity and an Apple notarytool Keychain profile. It emits the notarized archive, hardened-runtime signing evidence, Gatekeeper result, SHA-256 checksums, and CycloneDX SBOM. `scripts/verify-release-candidate.sh` performs a credential-free ad-hoc candidate build check but does not represent a distributable notarized release.
+
+See [docs/PRD.md](docs/PRD.md), [docs/TERMINOLOGY.md](docs/TERMINOLOGY.md), the [schema guide](docs/SCHEMAS.md), and the [frozen command matrix](docs/redesign/COMMAND_MATRIX.md).

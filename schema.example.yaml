@@ -1,0 +1,25 @@
+version: 1
+name: credential
+description: API credential with operational metadata
+secrets:
+  - name: token
+    type: string
+    required: true
+    prompt: Token
+  - name: enabled
+    type: boolean
+    required: true
+    prompt: Enabled
+inscriptions:
+  - name: owner
+    type: string
+    required: true
+    prompt: Owning team
+  - name: environment
+    type: enum
+    required: true
+    prompt: Environment
+    values:
+      - development
+      - staging
+      - production
