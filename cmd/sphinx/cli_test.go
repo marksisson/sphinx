@@ -70,6 +70,41 @@ func walkFlags(t *testing.T, command *cobra.Command) {
 	}
 }
 
+func TestRootHelpSeparatesUtilityCommands(t *testing.T) {
+	a, _ := newApp(io.Discard, io.Discard)
+	root := newRootCommand(a)
+	root.InitDefaultHelpCmd()
+	var out bytes.Buffer
+	root.SetOut(&out)
+	if err := root.Help(); err != nil {
+		t.Fatal(err)
+	}
+	help := out.String()
+	available := strings.Index(help, "Available Commands:")
+	additional := strings.Index(help, "Additional Commands:")
+	if available < 0 || additional < available {
+		t.Fatalf("help command sections missing or out of order:\n%s", help)
+	}
+	primary := help[available:additional]
+	for _, command := range []string{"artifact", "decree", "guardian", "proclamation", "tomb"} {
+		if !strings.Contains(primary, "  "+command) {
+			t.Errorf("primary command %q not in available section", command)
+		}
+	}
+	utilities := help[additional:]
+	for command, description := range map[string]string{
+		"completion": "Generate shell completion scripts",
+		"help":       "Help about any command",
+	} {
+		if !strings.Contains(utilities, "  "+command) {
+			t.Errorf("utility command %q not in additional section", command)
+		}
+		if !strings.Contains(utilities, description) {
+			t.Errorf("utility command %q description missing", command)
+		}
+	}
+}
+
 func TestJSONUsageEnvelopeAndSysexits(t *testing.T) {
 	var out, errOut bytes.Buffer
 	code := runCLI([]string{"--json", "artifact", "reveal", "--listen-address", "127.0.0.1:8080", "prod/api"}, &out, &errOut, nil)

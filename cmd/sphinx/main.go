@@ -74,7 +74,13 @@ func newRootCommand(a *app) *cobra.Command {
 	root.PersistentFlags().BoolVar(&a.quiet, "quiet", false, "suppress nonessential human output")
 	root.PersistentFlags().BoolVar(&a.noColor, "no-color", false, "disable color output")
 	root.SetFlagErrorFunc(func(_ *cobra.Command, err error) error { return cliresult.Usage(err) })
-	root.AddCommand(newTombCommand(a), newArtifactCommand(a), newGuardianCommand(a), newDecreeCommand(a), newProclamationCommand(a), newCompletionCommand(root))
+	root.AddGroup(&cobra.Group{ID: "sphinx", Title: "Available Commands:"})
+	primaryCommands := []*cobra.Command{newTombCommand(a), newArtifactCommand(a), newGuardianCommand(a), newDecreeCommand(a), newProclamationCommand(a)}
+	for _, command := range primaryCommands {
+		command.GroupID = "sphinx"
+	}
+	root.AddCommand(primaryCommands...)
+	root.AddCommand(newCompletionCommand(root))
 	root.SetHelpCommand(newHelpCommand(root, a))
 	return root
 }
@@ -86,7 +92,7 @@ func commandGroup(use, short string) *cobra.Command {
 }
 
 func newHelpCommand(root *cobra.Command, a *app) *cobra.Command {
-	return &cobra.Command{Use: "help [command...]", Args: cobra.ArbitraryArgs, RunE: func(_ *cobra.Command, args []string) error {
+	return &cobra.Command{Use: "help [command...]", Short: "Help about any command", Args: cobra.ArbitraryArgs, RunE: func(_ *cobra.Command, args []string) error {
 		target := root
 		if len(args) > 0 {
 			found, remaining, err := root.Find(args)
@@ -111,7 +117,7 @@ func newHelpCommand(root *cobra.Command, a *app) *cobra.Command {
 }
 
 func newCompletionCommand(root *cobra.Command) *cobra.Command {
-	return &cobra.Command{Use: "completion [bash|zsh|fish|powershell]", Args: cobra.ExactArgs(1), ValidArgs: []string{"bash", "zsh", "fish", "powershell"}, RunE: func(_ *cobra.Command, args []string) error {
+	return &cobra.Command{Use: "completion [bash|zsh|fish|powershell]", Short: "Generate shell completion scripts", Args: cobra.ExactArgs(1), ValidArgs: []string{"bash", "zsh", "fish", "powershell"}, RunE: func(_ *cobra.Command, args []string) error {
 		switch args[0] {
 		case "bash":
 			return root.GenBashCompletion(root.OutOrStdout())
