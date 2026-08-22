@@ -105,6 +105,8 @@ sphinx tomb add --name default github:example/company-tomb?ref=main
 
 Enrollment validates the complete tomb and asks you to approve its proclamation fingerprint. It atomically writes the exact commit, fingerprint, decree generation, timestamp, and guardian selections to `<project-git-root>/.sphinx/config.yaml`.
 
+Remote tombs use verified smart HTTPS or SSH. HTTPS is anonymous/public only and does not use credential helpers, `.netrc`, embedded credentials, or ambient proxies. SSH uses `SSH_AUTH_SOCK`, standard user/system known-host files, and only the user, host, and port in the URL; SSH config aliases, identity files, passwords, proxy directives, and command directives are unsupported.
+
 Configure a matching guardian selection in that project file, then reveal:
 
 ```sh
@@ -157,7 +159,7 @@ Supported tomb references are:
 - `git+ssh://HOST/PATH`
 - `path:/absolute/worktree`
 
-A reference may have one `?ref=` or `?rev=` selector, never both. References identify repositories only.
+A reference may have one `?ref=` or `?rev=` selector, never both. References identify repositories only. Production Git behavior runs in process; installing or exposing a Git executable through `PATH` is not required.
 
 ## Security and release operations
 

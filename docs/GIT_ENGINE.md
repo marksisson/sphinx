@@ -1,6 +1,6 @@
 # Pure-Go Git Engine Plan
 
-**Status:** Proposed
+**Status:** Accepted by ADR 0009; implementation in progress
 
 This document plans replacement of every production invocation of the Git executable with the current `main` branch of [`go-git`](https://github.com/go-git/go-git). Native Git remains a pinned test oracle until differential verification proves that the in-process implementation is equivalent or more conservative at every Sphinx trust boundary.
 
@@ -166,7 +166,7 @@ Sphinx should configure an explicit bounded shared pool for repository/cache rea
 |---|---|---|
 | discover nearest worktree root | `internal/config`, `internal/locator` | shared read-only worktree opener with parent discovery and exact-root validation |
 | reject bare repositories | `internal/config`, `internal/locator` | repository/worktree presence checks and filesystem-storage metadata validation |
-| obtain absolute Git directory and common directory | `internal/config`, `internal/git/worktree` | filesystem storage plus `x/plumbing/worktree` metadata resolution, followed by Sphinx symlink/canonical-path checks |
+| obtain absolute Git directory and common directory | `internal/git/repository`, consumed by `internal/config`, `internal/locator`, and `internal/git/worktree` | filesystem storage plus `x/plumbing/worktree` metadata resolution, followed by Sphinx symlink/canonical-path checks |
 | resolve local `HEAD^{commit}` | `internal/git/resource` | resolve HEAD, peel symbolic/tag references as allowed, and require a commit object with the repository's object format |
 | `ls-remote` exact HEAD/branch/tag advertisement | `internal/git/resource` | context-aware remote `List` with exact ref-name matching and explicit annotated-tag peeling |
 | reject same-name branch/tag ambiguity | `internal/git/resource` | inspect the complete advertised ref set before choosing a commit |
@@ -181,9 +181,9 @@ Sphinx should configure an explicit bounded shared pool for repository/cache rea
 | target-scoped staged/unstaged/untracked status | `internal/git/worktree` | compare HEAD, index, and filesystem for each literal canonical target; use go-git status only after parity is demonstrated |
 | evaluate worktree and HEAD attributes | `internal/git/worktree` | separate matchers for current filesystem attributes and exact HEAD-tree attributes, plus applicable info attributes |
 | compare raw and prospective blob IDs | `internal/git/worktree` | after proving all transformations absent, hash `blob <length>\0<bytes>` with go-git's repository-format-aware hasher and require the raw and prospective models to agree |
-| prevent ambient Git configuration | `internal/git/env` | register `x/plugin/config.NewEmpty` before first go-git use; remove `internal/git/env` after migration |
+| prevent ambient Git configuration | `internal/git/runtime` | register and freeze `x/plugin/config.NewEmpty` before first go-git use |
 
-No production package outside `internal/git` should import go-git directly. `internal/config` and `internal/locator` should consume a narrow read-only discovery interface from `internal/git/worktree`. This keeps experimental API churn and repository parsing inside one trust boundary.
+No production package outside `internal/git` should import go-git directly. `internal/config`, `internal/locator`, and mutation-facing `internal/git/worktree` consume the narrow read-only discovery interface from `internal/git/repository`. This avoids an import cycle between locator parsing and mutation worktrees while keeping experimental API churn and repository parsing inside one trust boundary.
 
 ## Proposed architecture
 
@@ -237,14 +237,15 @@ Transport policy must be explicit rather than inheriting all go-git defaults:
 - TLS verification is mandatory and no insecure custom transport is registered;
 - SSH host-key verification is mandatory;
 - SSH agent use is permitted;
-- supported `~/.ssh/config` directives are enumerated and tested;
-- unsupported directives that would change routing, identity, proxying, or command execution fail closed rather than being ignored;
+- user and system SSH configuration is not loaded; host, user, and port come only from the canonical URL, so routing, identity, proxy, and command directives cannot alter transport;
 - no interactive password prompt is introduced;
 - no credential helper or arbitrary helper subprocess is executed;
 - redirects must not forward credentials across hosts;
 - transfer errors must not leak URL user information or authentication material.
 
-Before implementation completes, an ADR must choose and document the supported private-HTTPS and SSH authentication contract. If exact native-Git credential-helper, `IdentityFile`, `ProxyJump`, or `ProxyCommand` behavior is not implemented safely in process, support must be narrowed explicitly rather than silently changing behavior. `github:` over HTTPS remains suitable for public repositories; private repositories require a documented native credential source.
+The pinned `ssh.NewSSHAgentAuth` discards the distinct SSH-agent `net.Conn` returned by its agent dialer and exposes no close operation. Closing the Git SSH client or session does not close that agent socket. Production transport must therefore own the agent connection through a narrow authentication wrapper and defer its close immediately after a successful dial, alongside the transport-managed Git SSH client and session lifecycle. The isolated SSH oracle demonstrates this ownership pattern.
+
+ADR 0009 selects anonymous verified HTTPS and SSH-agent-only authentication with standard known-host files. Native-Git credential helpers, `.netrc`, `IdentityFile`, `ProxyJump`, `ProxyCommand`, SSH host aliases, password authentication, and ambient proxy routing are outside the supported contract.
 
 ### Immutable object cache
 
@@ -295,6 +296,8 @@ Implement an internal effective-attribute evaluator over go-git's `plumbing/form
 Sphinx does not need to execute a clean filter. Once both worktree and HEAD evaluations prove that transforms are absent, the prospective committed bytes are the exact regular-file bytes. Compute the repository object ID using go-git's object-format-aware hasher as a defense-in-depth check while continuing to return Sphinx's SHA-256 content digest.
 
 A native-Git oracle test must compare every matcher result and prospective object ID with `git check-attr -z` and `git hash-object` across nested attributes, macros, negation, quoting, Unicode, info attributes, EOL settings, filter drivers, and SHA-1/SHA-256 repositories.
+
+The pinned `gitattributes.Matcher` does not preserve native first-match precedence when one call spans multiple matching rules: lower-priority rules can overwrite an attribute already returned by a higher-priority rule. The differential adapter therefore evaluates each rule from highest to lowest priority and accepts the first state for each queried attribute while retaining the complete macro-definition stack. Production attribute evaluation must preserve this workaround unless a reviewed go-git update fixes the behavior and the oracle matrix proves parity.
 
 ### Worktree and index safety
 
@@ -352,6 +355,8 @@ Exit condition: the differential suite covers every row in the operation table a
 
 ### Read-only repository gate
 
+**Status:** Implemented in the current tree. `internal/git/resource` contains no native-Git execution path; a release-policy test enforces that boundary. Transport-policy hardening remains governed by the later transport and authentication gate.
+
 Migrate remote listing, mirror materialization, commit verification, tree/blob reads, object-format handling, ancestry, and immutable attributes inside `internal/git/resource`.
 
 Keep the current cache lock, candidate, synchronization, promotion, corruption eviction, and exact-content validation logic. Remove only the subprocess implementation.
@@ -360,11 +365,15 @@ Exit condition: reveal, inspect, public validation, enrollment, and lock-update 
 
 ### Worktree discovery gate
 
+**Status:** Implemented in the current tree. Shared discovery lives in `internal/git/repository`; release-policy tests prevent native root or administrative-directory discovery from returning.
+
 Migrate root discovery in `internal/config` and `internal/locator`, and administrative-directory discovery in `internal/git/worktree`, to the shared opener and `x/plumbing/worktree`.
 
 Exit condition: main, nested, detached, and linked worktrees created by native Git resolve to exactly the same canonical roots and administrative directories, and malformed metadata fails closed.
 
 ### Mutation-safety gate
+
+**Status:** Implemented in the current tree. `internal/git/worktree` contains no native-Git execution path; release-policy tests enforce that boundary. Index versions other than v2, including v3 files produced for intent-to-add and skip-worktree entries, are conservatively rejected. Assume-unchanged does not suppress Sphinx's go-git worktree comparison, so hidden target changes are also conservatively rejected.
 
 Migrate index conflict detection, target status, attribute checks, and prospective-object hashing. Retain direct marker and filesystem safety checks.
 
@@ -372,11 +381,15 @@ Exit condition: every mutation, crash-recovery, TOCTOU, symlink, attributes, and
 
 ### Transport and authentication gate
 
+**Status:** Implemented in the current tree. `internal/git/transport` centralizes anonymous smart HTTPS and SSH-agent-only policy, owns agent and HTTP lifecycles, ignores ambient proxy and SSH routing configuration, requires TLS and known-host verification, bounds redirects, propagates cancellation through SSH handshake connections, and emits redacted transport diagnostics.
+
 Implement the accepted HTTPS and SSH credential policy, known-host verification, SSH configuration handling, redirects, cancellation, and error redaction. Add local protocol servers and isolated SSH-agent fixtures; official tests must not depend on public GitHub availability.
 
 Exit condition: public and supported private transports work noninteractively, unsupported auth/configuration fails with stable diagnostics, and no secret reaches argv, environment diagnostics, or persisted configuration.
 
 ### Removal and publication gate
+
+**Status:** Implemented in the current tree. Production Go code has no external-process path, runtime packaging does not include or wrap Git, native-oracle environment isolation lives under `internal/testgit`, verification rejects regressions, and release candidates execute with an empty `PATH`.
 
 - delete `internal/git/env` and all production subprocess helpers;
 - remove Git from the distributed Nix wrapper and runtime requirements;

@@ -122,6 +122,8 @@ path:.                         # relative to the current directory
 
 Only `ref` and `rev` query parameters are supported. `ref` names a mutable branch or tag; `rev` names a full immutable commit ID. They are mutually exclusive. A tomb reference MUST NOT encode artifact files, chamber paths, or checkout directories. Generic HTTP resources, archives, embedded credentials, fragments, unknown/repeated query parameters, and non-Git local directories are rejected. A relative `path:` reference is resolved against the current directory, canonicalized without symlink traversal, and MUST resolve to the Git worktree root rather than an arbitrary subdirectory. A configured short name such as `production-secrets` may stand for a complete tomb reference.
 
+`github:` and `git+https://` use anonymous verified smart HTTPS with system TLS roots, direct dialing, and redirects limited to initial advertisement requests; credential helpers, `.netrc`, embedded credentials, ambient proxies, plaintext HTTP, and dumb HTTP are unsupported. `git+ssh://` uses only `SSH_AUTH_SOCK`, standard user/system known-host files, and the explicit URL user/host/port (default user `git`). Sphinx does not load SSH routing or identity configuration and does not support passwords, identity files, host aliases, `ProxyCommand`, `ProxyJump`, or other command/proxy directives. Transport diagnostics omit URLs, users, socket paths, host keys, and upstream error text.
+
 A reference without a selector tracks the repository's default branch. For reveal operations, `--tomb` accepts either a project-configured tomb name or a tomb reference that matches a project lock. An optional global alias is only an enrollment convenience; it does not make a tomb usable until `sphinx tomb add` writes a lock into the current project's `.sphinx/config.yaml`. Mutating tomb/artifact/decree commands instead require a local caller-managed worktree as specified in §6.4.
 
 ### 6.2 Chamber resolution
@@ -191,7 +193,7 @@ The alias `default` is reserved by behavior, not prohibited as a project tomb na
 
 Sphinx edits only a caller-managed local Git worktree. Artifact creation/reseal, guardian add/remove, decree mutation/signing, and other tomb content changes MUST target a `path:` tomb reference resolving to a non-bare writable worktree containing canonical `.tomb/` metadata. Remote references, immutable materialization caches, and consuming-project tomb locks are read-only and MUST be rejected as mutation targets.
 
-Sphinx may invoke Git to discover the worktree root, inspect status, validate refs/remotes, and compute the prospective committed blob bytes used by artifact digests. It MUST NOT initialize repositories, create or switch branches, stage files, create commits, modify remotes, push, open pull requests, or update a consuming project's tomb lock as a side effect of tomb authoring.
+Sphinx performs worktree discovery, status inspection, ref/remote validation, attribute evaluation, and prospective-object hashing in process through the pinned go-git engine. Runtime MUST NOT invoke a Git executable or use one as a fallback. Sphinx MUST NOT initialize repositories, create or switch branches, stage files, create commits, modify remotes, push, open pull requests, or update a consuming project's tomb lock as a side effect of tomb authoring.
 
 Before mutation, Sphinx MUST reject an in-progress merge/rebase/cherry-pick, unmerged index entries, symlink escapes, and pre-existing unstaged/staged changes to files it will replace. The sole exception is `decree sign`, which intentionally accepts caller-edited `decree.yaml` and schema blobs as declared inputs while still requiring its generated signature/transaction outputs to be clean. Unrelated dirty files MAY remain. After mutation, Sphinx reports every changed path and recommends `sphinx tomb validate path:.`; the caller reviews, stages, commits, signs, pushes, and merges using normal Git tooling and repository policy.
 
@@ -388,7 +390,7 @@ Decrees authorize only artifact reveal. Rules are allow-only: there is no `deny`
 
 ### 8.1 Required suite definition
 
-The authoritative artifact-recipient implementation is the native standard hybrid implementation in `filippo.io/age` **v1.3.1**, compiled in-process with Go 1.24 or later. SOPS integration is pinned to `github.com/getsops/sops/v3` **v3.12.1**, whose age master-key implementation natively parses `age1pq1` recipients and `AGE-SECRET-KEY-PQ-1` identities. The module versions and checksums in `go.mod`/`go.sum` are part of the build input.
+The authoritative artifact-recipient implementation is the native standard hybrid implementation in `filippo.io/age` **v1.3.1**, compiled in-process with Go 1.26 or later. SOPS integration is pinned to `github.com/getsops/sops/v3` **v3.12.1**, whose age master-key implementation natively parses `age1pq1` recipients and `AGE-SECRET-KEY-PQ-1` identities. The module versions and checksums in `go.mod`/`go.sum` are part of the build input.
 
 The normative age suite and wire format are exactly `age.HybridRecipient`/`age.HybridIdentity` from that version:
 
@@ -401,7 +403,7 @@ The normative age suite and wire format are exactly `age.HybridRecipient`/`age.H
 - recipient label: `postquantum`, preventing unsafe mixing with non-PQ recipients;
 - SOPS storage: the standard armored age-encrypted data key in each SOPS `age` master-key entry generated by SOPS v3.12.1.
 
-The authoritative decree-signature implementation is Go 1.24 `crypto/ed25519` plus FIPS 204 ML-DSA-65 from `github.com/cloudflare/circl/sign/mldsa/mldsa65` **v1.6.1**. The proclamation derives one 32-byte seed for each component; Ed25519 uses `ed25519.NewKeyFromSeed`, and ML-DSA-65 uses `mldsa65.NewKeyFromSeed`. ML-DSA signing is deterministic (`randomized=false`). Public keys and signatures use their raw fixed-width encodings wrapped in unpadded base64url; malformed lengths are rejected. The detached signature always carries separate `ed25519` and `ml_dsa_65` values, and both MUST verify.
+The authoritative decree-signature implementation is Go 1.26 `crypto/ed25519` plus FIPS 204 ML-DSA-65 from `github.com/cloudflare/circl/sign/mldsa/mldsa65` **v1.6.3**. The proclamation derives one 32-byte seed for each component; Ed25519 uses `ed25519.NewKeyFromSeed`, and ML-DSA-65 uses `mldsa65.NewKeyFromSeed`. ML-DSA signing is deterministic (`randomized=false`). Public keys and signatures use their raw fixed-width encodings wrapped in unpadded base64url; malformed lengths are rejected. The detached signature always carries separate `ed25519` and `ml_dsa_65` values, and both MUST verify.
 
 Both components sign the same unambiguous binary frame: ASCII magic `sphinx-signature-v1`, followed by the ASCII signature purpose, ASCII lowercase UUID tomb ID, raw 32-byte manifest SHA-256 (zero-length only where not applicable), and exact payload bytes, with every variable field prefixed by an unsigned 64-bit big-endian byte length. ML-DSA uses an empty FIPS 204 context because domain separation is already in the frame. The public-bundle fingerprint is `SHA256:` plus unpadded base64url of SHA-256 over the same length-prefixed suite ID and raw Ed25519/ML-DSA public keys. Decree and transition signatures use distinct purpose strings.
 
@@ -769,7 +771,7 @@ The release satisfies these acceptance criteria:
 - `sphinx --help` exposes tomb, artifact, guardian, proclamation rotation, and decree management and no server/daemon command.
 - No process started by Sphinx listens for Sphinx requests.
 - Generated guardians pass pinned hybrid classical/PQ interoperability vectors.
-- Decrees and rotation transitions use the pinned Go Ed25519 + CIRCL v1.6.1 ML-DSA-65 frame and encodings; both signatures must verify against fixed FIPS/interoperability vectors.
+- Decrees and rotation transitions use the pinned Go Ed25519 + CIRCL v1.6.3 ML-DSA-65 frame and encodings; both signatures must verify against fixed FIPS/interoperability vectors.
 - Secure credential providers are the sole guardian stores; no filesystem registry or private backup file is created.
 - On macOS, `apple-icloud-keychain` creates and queries synchronizable Sphinx service items, `apple-login-keychain` remains explicitly non-synchronizable, and no silent provider fallback occurs.
 - The read-only `environment` provider reads only `SPHINX_GUARDIAN`, accepts exactly one matching versioned guardian record, exposes no mutating operations, and never permits configurable environment-variable names; its record format remains platform-independent.

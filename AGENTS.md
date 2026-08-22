@@ -22,7 +22,8 @@ For format work, also read [`docs/SCHEMAS.md`](docs/SCHEMAS.md) and [`docs/examp
 - The sole release target is cgo-enabled `darwin/arm64`.
 - Tombs are Git repositories. Chambers are exact case-sensitive paths containing `artifact.yaml`.
 - `.tomb/` is tomb metadata. `.sphinx/config.yaml` is consuming-project configuration.
-- Runtime may execute only Git. age and SOPS are linked in process; Tailscale identity comes from LocalAPI.
+- Production Git behavior is implemented in process behind `internal/git` at the pinned go-git commit. Native Git is a test/release oracle only and is never a production fallback.
+- Runtime must not execute external tools. Git, age, and SOPS behavior is linked in process; Tailscale identity comes from LocalAPI.
 - Every reveal performs a fresh live tailscaled identity check. There is no offline mode, override, or grace period.
 - Decree enforcement is advisory for conforming Sphinx use. Do not represent it as a remote key-release boundary.
 - Plaintext output is stdout only. Do not add clipboard, plaintext-file, temporary-file, dedicated-descriptor, or child-command output modes.
@@ -38,7 +39,7 @@ For format work, also read [`docs/SCHEMAS.md`](docs/SCHEMAS.md) and [`docs/examp
 
 - Native age suite: ML-KEM-768 + X25519 through `filippo.io/age` v1.3.1.
 - SOPS: v3.12.1, one key group, exactly one proclamation recipient followed by zero or more unique guardian recipients.
-- Signatures require both Ed25519 and ML-DSA-65 through CIRCL v1.6.1.
+- Signatures require both Ed25519 and ML-DSA-65 through CIRCL v1.6.3.
 - Proclamations are generated ten-word phrases using the pinned 7,776-word list and fixed `argon2id-v1` parameters.
 - Runtime must not invoke external cryptographic tools or plugins. External tools are test oracles only.
 - All Sphinx YAML is strict UTF-8, LF-only, exactly one trailing LF, and one document.
@@ -66,7 +67,8 @@ Prompts use the controlling terminal so JSON streams remain clean. Never include
 - `cmd/sphinx` — Cobra command surface and output behavior.
 - `internal/artifact` — strict plaintext model and native SOPS engine; `internal/artifact/mutation` validates complete virtual mutation state.
 - `internal/chamber`, `internal/locator` — chamber paths and tomb references.
-- `internal/config`, `internal/git/env`, `internal/git/resource`, `internal/git/worktree` — project configuration, controlled Git execution, immutable Git content, and guarded caller-managed worktrees.
+- `internal/config`, `internal/git/runtime`, `internal/git/repository`, `internal/git/resource`, `internal/git/transport`, `internal/git/worktree` — project configuration, isolated go-git initialization, shared read-only repository discovery, immutable Git content, verified noninteractive transport, and guarded caller-managed worktrees. Production packages outside `internal/git` must not import go-git directly; every pinned go-git commit update requires full differential and security review.
+- `internal/testgit` and `internal/git/differential` — native-Git test-oracle isolation and structured differential gates; production code must not import `internal/testgit`.
 - `internal/decree`, `internal/tomb/state`, `internal/tomb/lock`, `internal/tomb/path`, `internal/tomb/transaction` — signed policy, locks, managed paths, trust transitions, and exact mutation transactions.
 - `internal/guardian`, `internal/guardian/store`, `internal/guardian/keychain` — provider-authoritative guardian records.
 - `internal/hybrid/age`, `internal/hybrid/sign`, `internal/proclamation` — fixed cryptographic boundaries; `internal/proclamation/rotation` coordinates credential rotation.

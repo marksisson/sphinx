@@ -6,7 +6,7 @@ Scope: the initial Sphinx CLI release on macOS Apple Silicon. This review follow
 
 ## Security boundaries
 
-Trusted boundaries are the Sphinx executable, the current process address space, macOS Keychain, local tailscaled LocalAPI, Git object storage and commands invoked through the isolated Git environment, and the caller-controlled terminal/stdout destination. Tomb contents, consuming-project configuration, worktrees, caches, environment records, repository refs, and all YAML are untrusted inputs.
+Trusted boundaries are the Sphinx executable, the current process address space, macOS Keychain, local tailscaled LocalAPI, the pinned in-process go-git engine, system TLS roots and SSH known-host trust, and the caller-controlled terminal/stdout destination. Tomb contents, consuming-project configuration, worktrees, caches, environment records, repository refs, remote protocol responses, and all YAML are untrusted inputs.
 
 The release does not claim protection from a compromised user account, debugger or root access, malicious terminal emulator, compromised tailscaled, compromised credential provider, substituted signed executable, or a guardian holder using native SOPS/age outside Sphinx.
 
@@ -24,15 +24,17 @@ Within the CLI, every reveal performs a fresh tailscaled LocalAPI status request
 
 ### Dependency and cryptographic integrity
 
-**Risk: controlled with a pinned supply chain.** `go.mod`, `go.sum`, `flake.lock`, the Nix fixed vendor hash, pinned-version tests, fixture checksums, and independent native age/SOPS interoperability tests pin and exercise age v1.3.1, SOPS v3.12.1, CIRCL v1.6.1, and their module graph. Runtime executes no age/SOPS executable or plugin. Release builds use the locked Nix input or the checked module sums, `-trimpath`, PIE, cgo, and the exact `darwin/arm64` target. The release procedure records checksums, build information, an SBOM, signing verification, notarization status, and Gatekeeper assessment.
+**Risk: controlled with a pinned supply chain.** `go.mod`, `go.sum`, `flake.lock`, the Nix fixed vendor hash, pinned-version tests, fixture checksums, and independent native age/SOPS interoperability tests pin and exercise age v1.3.1, SOPS v3.12.1, CIRCL v1.6.3, the reviewed go-git commit, and their module graph. Runtime executes no age/SOPS executable or plugin. Release builds use the locked Nix input or the checked module sums, `-trimpath`, PIE, cgo, and the exact `darwin/arm64` target. The release procedure records checksums, build information, an SBOM, signing verification, notarization status, and Gatekeeper assessment.
 
 A malicious upstream source accepted into a future dependency update remains a supply-chain risk. Updates require review, checksum/vendor-hash changes, interoperability vectors, the complete verification gate, and a new signed/notarized artifact.
 
 ### Git locks, mutable refs, and local worktrees
 
-**Risk: controlled.** Remote refs are resolved once to full commits; prepared updates are descendant-only and install the exact prepared commit. Locked reads use exact Git blobs rather than worktree files. Managed blobs reject submodules, filters, LFS transformations, encoding, and line-ending transformations. Git runs with repository/index/config redirect variables removed and terminal prompting disabled.
+**Risk: controlled.** Remote refs are resolved once to full commits; prepared updates are descendant-only and install the exact prepared commit. Locked reads use exact Git blobs rather than worktree files. Managed blobs reject submodules, filters, LFS transformations, encoding, and line-ending transformations. Repository discovery, object access, status, attributes, hashing, and transport execute in process through the pinned go-git engine with isolated ambient Git configuration and bounded shared descriptors.
 
-Explicit `path:` worktrees are the only mutable target. Before administrative mutation, complete managed state must be clean, signed state must verify, dependencies are read-only and guarded, edited paths are explicit, and pre/post images are validated. Sphinx never mutates Git history or the index. A malicious Git executable earlier in `PATH` can violate assumptions; release consumers must use the platform Git or another trusted Git installation.
+Remote transport is deliberately narrow: anonymous verified smart HTTPS uses system roots, direct dialing, initial-request redirects, and no credential source; SSH uses only the caller's agent plus standard known-host files and ignores SSH routing/identity configuration. Cross-authority redirects strip sensitive headers, TLS downgrades and dumb HTTP fail closed, SSH handshakes are context-bound, and diagnostics redact upstream details. A compromised user account can still replace its own TLS/known-host trust or agent and remains outside the threat model.
+
+Explicit `path:` worktrees are the only mutable target. Before administrative mutation, complete managed state must be clean, signed state must verify, dependencies are read-only and guarded, edited paths are explicit, and pre/post images are validated. Sphinx never mutates Git history or the index. Native Git is a pinned test oracle only and is not a production fallback.
 
 ### Recipient mutation and proclamation rotation
 
@@ -56,4 +58,4 @@ Consuming locks pin commit, proclamation fingerprint, and decree generation. Upd
 
 ## Review conclusion
 
-No release-blocking design contradiction was found in the implemented trust model. The most important residual risks are intentional: guardian holders can bypass advisory seeker policy, plaintext security ends at stdout, environment-provider identities have process-memory exposure, trusted Git/tailscaled/Keychain are external dependencies, and privileged local compromise defeats process controls. These limitations are stated in release and operational documentation rather than represented as guarantees.
+No release-blocking design contradiction was found in the implemented trust model. The most important residual risks are intentional: guardian holders can bypass advisory seeker policy, plaintext security ends at stdout, environment-provider identities have process-memory exposure, pinned go-git and remote parsers remain dependency boundaries, tailscaled/Keychain and local transport trust are external dependencies, and privileged local compromise defeats process controls. These limitations are stated in release and operational documentation rather than represented as guarantees.

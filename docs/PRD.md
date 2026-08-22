@@ -44,7 +44,7 @@ A chamber is an exact case-sensitive printable-ASCII path. It cannot be absolute
 
 Managed tomb files must be regular Git blobs with no symbolic links, submodules, LFS, filters, working-tree encoding, or line-ending transformations. Immutable reads come from a bare object cache and exact Git objects, never a checkout.
 
-Sphinx mutates only explicit `path:` references to existing caller-managed non-bare worktrees. It never initializes Git, changes the index, stages, commits, signs Git objects, creates branches, merges, pushes, stashes, or performs broad reset operations.
+Sphinx mutates only explicit `path:` references to existing caller-managed non-bare worktrees. Production Git behavior is in process at the reviewed go-git pin and MUST NOT require, discover, or fall back to a Git executable. Sphinx never initializes Git, changes the index, stages, commits, signs Git objects, creates branches, merges, pushes, stashes, or performs broad reset operations.
 
 ## Tomb references and project locks
 
