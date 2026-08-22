@@ -2,7 +2,7 @@ package main
 
 import (
 	"github.com/marksisson/sphinx/internal/config"
-	"github.com/marksisson/sphinx/internal/gitresource"
+	gitresource "github.com/marksisson/sphinx/internal/git/resource"
 	"github.com/marksisson/sphinx/internal/locator"
 	"github.com/spf13/cobra"
 )

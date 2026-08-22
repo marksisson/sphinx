@@ -7,8 +7,8 @@ import (
 
 	"github.com/marksisson/sphinx/internal/artifact"
 	"github.com/marksisson/sphinx/internal/proclamation"
-	"github.com/marksisson/sphinx/internal/proclamationrotation"
-	"github.com/marksisson/sphinx/internal/transaction"
+	"github.com/marksisson/sphinx/internal/proclamation/rotation"
+	"github.com/marksisson/sphinx/internal/tomb/transaction"
 	"github.com/spf13/cobra"
 )
 
@@ -44,7 +44,7 @@ func newProclamationRotate(a *app) *cobra.Command {
 			return err
 		}
 		defer next.Destroy()
-		if err := proclamationrotation.Rotate(cmd.Context(), session.tree, artifact.Engine{}, session.content, session.derived, next, transaction.Options{}); err != nil {
+		if err := rotation.Rotate(cmd.Context(), session.tree, artifact.Engine{}, session.content, session.derived, next, transaction.Options{}); err != nil {
 			return err
 		}
 		return a.success(map[string]any{"generation": session.verified.Decree.Generation + 1, "proclamation_fingerprint": next.Public().Fingerprint}, func(w io.Writer) error { _, e := fmt.Fprintln(w, "Rotated proclamation"); return e }, nil)

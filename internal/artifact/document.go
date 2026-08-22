@@ -1,4 +1,4 @@
-// Package artifact defines the initial plaintext artifact domain model. SOPS
+// Package artifact defines the plaintext artifact domain model. SOPS
 // encryption is layered on this model by the native SOPS engine.
 package artifact
 
@@ -6,7 +6,7 @@ import (
 	"fmt"
 	"regexp"
 
-	"github.com/marksisson/sphinx/internal/yamlstrict"
+	yamlstrict "github.com/marksisson/sphinx/internal/yaml/strict"
 )
 
 const FormatVersion = 1

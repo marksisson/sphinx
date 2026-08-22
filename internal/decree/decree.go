@@ -11,7 +11,7 @@ import (
 	"github.com/marksisson/sphinx/internal/chamber"
 	"github.com/marksisson/sphinx/internal/schema"
 	"github.com/marksisson/sphinx/internal/seeker"
-	"github.com/marksisson/sphinx/internal/yamlstrict"
+	yamlstrict "github.com/marksisson/sphinx/internal/yaml/strict"
 )
 
 const Version = 1

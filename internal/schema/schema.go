@@ -9,7 +9,7 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/marksisson/sphinx/internal/yamlstrict"
+	yamlstrict "github.com/marksisson/sphinx/internal/yaml/strict"
 )
 
 const Directory = ".tomb/schemas"

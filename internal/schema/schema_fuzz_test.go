@@ -3,7 +3,7 @@ package schema
 import (
 	"testing"
 
-	"github.com/marksisson/sphinx/internal/yamlstrict"
+	yamlstrict "github.com/marksisson/sphinx/internal/yaml/strict"
 )
 
 func FuzzDecode(f *testing.F) {

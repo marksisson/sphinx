@@ -5,7 +5,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/marksisson/sphinx/internal/hybridage"
+	hybridage "github.com/marksisson/sphinx/internal/hybrid/age"
 )
 
 func FuzzDecode(f *testing.F) {

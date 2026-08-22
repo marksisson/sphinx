@@ -8,7 +8,7 @@ import (
 	"time"
 
 	"filippo.io/age"
-	"github.com/marksisson/sphinx/internal/hybridage"
+	hybridage "github.com/marksisson/sphinx/internal/hybrid/age"
 )
 
 const RecordVersion = 1

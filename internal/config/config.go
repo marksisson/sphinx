@@ -14,11 +14,11 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/marksisson/sphinx/internal/gitenv"
+	gitenv "github.com/marksisson/sphinx/internal/git/env"
 	"github.com/marksisson/sphinx/internal/guardian"
 	"github.com/marksisson/sphinx/internal/locator"
 	"github.com/marksisson/sphinx/internal/safefile"
-	"github.com/marksisson/sphinx/internal/yamlstrict"
+	yamlstrict "github.com/marksisson/sphinx/internal/yaml/strict"
 	"golang.org/x/sys/unix"
 )
 

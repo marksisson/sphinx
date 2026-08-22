@@ -5,14 +5,14 @@ import (
 	"sort"
 
 	"github.com/marksisson/sphinx/internal/artifact"
-	"github.com/marksisson/sphinx/internal/artifactmutation"
+	"github.com/marksisson/sphinx/internal/artifact/mutation"
 	"github.com/marksisson/sphinx/internal/chamber"
-	"github.com/marksisson/sphinx/internal/gitresource"
+	gitresource "github.com/marksisson/sphinx/internal/git/resource"
+	"github.com/marksisson/sphinx/internal/git/worktree"
 	"github.com/marksisson/sphinx/internal/locator"
 	"github.com/marksisson/sphinx/internal/proclamation"
 	"github.com/marksisson/sphinx/internal/schema"
-	"github.com/marksisson/sphinx/internal/tombstate"
-	"github.com/marksisson/sphinx/internal/worktree"
+	tombstate "github.com/marksisson/sphinx/internal/tomb/state"
 	"github.com/spf13/cobra"
 )
 
@@ -59,7 +59,7 @@ func (s *mutationSession) destroy() {
 		s.derived.Destroy()
 	}
 }
-func (s *mutationSession) scopedArtifacts(values []string, all bool) ([]artifactmutation.ScopedArtifact, error) {
+func (s *mutationSession) scopedArtifacts(values []string, all bool) ([]mutation.ScopedArtifact, error) {
 	names := values
 	if all {
 		names = make([]string, 0, len(s.content.Artifacts))
@@ -72,7 +72,7 @@ func (s *mutationSession) scopedArtifacts(values []string, all bool) ([]artifact
 		return nil, fmt.Errorf("artifact scope is empty")
 	}
 	seen := map[string]bool{}
-	out := make([]artifactmutation.ScopedArtifact, 0, len(names))
+	out := make([]mutation.ScopedArtifact, 0, len(names))
 	for _, value := range names {
 		parsed, err := chamber.Parse(value)
 		if err != nil {
@@ -103,7 +103,7 @@ func (s *mutationSession) scopedArtifacts(values []string, all bool) ([]artifact
 		if err != nil {
 			return nil, err
 		}
-		out = append(out, artifactmutation.ScopedArtifact{Path: blob.Path, Encrypted: blob.Data, Mode: mode, Definition: *definition})
+		out = append(out, mutation.ScopedArtifact{Path: blob.Path, Encrypted: blob.Data, Mode: mode, Definition: *definition})
 	}
 	return out, nil
 }

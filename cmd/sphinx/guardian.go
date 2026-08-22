@@ -7,10 +7,10 @@ import (
 	"time"
 
 	"github.com/marksisson/sphinx/internal/artifact"
-	"github.com/marksisson/sphinx/internal/artifactmutation"
+	"github.com/marksisson/sphinx/internal/artifact/mutation"
 	"github.com/marksisson/sphinx/internal/guardian"
-	"github.com/marksisson/sphinx/internal/tombstate"
-	"github.com/marksisson/sphinx/internal/transaction"
+	tombstate "github.com/marksisson/sphinx/internal/tomb/state"
+	"github.com/marksisson/sphinx/internal/tomb/transaction"
 	"github.com/spf13/cobra"
 )
 
@@ -173,9 +173,9 @@ func newGuardianChange(a *app, add bool) *cobra.Command {
 			return err
 		}
 		if add {
-			err = artifactmutation.AddGuardian(cmd.Context(), session.tree, artifact.Engine{}, session.derived.AgeIdentity(), record.Recipient(), scoped, builder, builder.Validator(), transaction.Options{})
+			err = mutation.AddGuardian(cmd.Context(), session.tree, artifact.Engine{}, session.derived.AgeIdentity(), record.Recipient(), scoped, builder, builder.Validator(), transaction.Options{})
 		} else {
-			err = artifactmutation.RemoveGuardian(cmd.Context(), session.tree, artifact.Engine{}, session.derived.AgeIdentity(), record.Recipient(), scoped, builder, builder.Validator(), transaction.Options{})
+			err = mutation.RemoveGuardian(cmd.Context(), session.tree, artifact.Engine{}, session.derived.AgeIdentity(), record.Recipient(), scoped, builder, builder.Validator(), transaction.Options{})
 		}
 		if err != nil {
 			return err

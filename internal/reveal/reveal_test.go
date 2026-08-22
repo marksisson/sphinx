@@ -12,15 +12,15 @@ import (
 	"github.com/marksisson/sphinx/internal/chamber"
 	"github.com/marksisson/sphinx/internal/config"
 	"github.com/marksisson/sphinx/internal/decree"
-	"github.com/marksisson/sphinx/internal/gitresource"
+	gitresource "github.com/marksisson/sphinx/internal/git/resource"
 	"github.com/marksisson/sphinx/internal/guardian"
-	"github.com/marksisson/sphinx/internal/hybridage"
-	"github.com/marksisson/sphinx/internal/hybridsign"
-	"github.com/marksisson/sphinx/internal/lockedresource"
+	hybridage "github.com/marksisson/sphinx/internal/hybrid/age"
+	hybridsign "github.com/marksisson/sphinx/internal/hybrid/sign"
 	"github.com/marksisson/sphinx/internal/proclamation"
 	"github.com/marksisson/sphinx/internal/schema"
 	"github.com/marksisson/sphinx/internal/seeker"
-	"github.com/marksisson/sphinx/internal/tombstate"
+	lockedresource "github.com/marksisson/sphinx/internal/tomb/lock"
+	tombstate "github.com/marksisson/sphinx/internal/tomb/state"
 )
 
 type fakeSeekers struct {

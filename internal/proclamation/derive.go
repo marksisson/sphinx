@@ -9,8 +9,8 @@ import (
 	"io"
 
 	"filippo.io/age"
-	"github.com/marksisson/sphinx/internal/hybridage"
-	"github.com/marksisson/sphinx/internal/hybridsign"
+	hybridage "github.com/marksisson/sphinx/internal/hybrid/age"
+	hybridsign "github.com/marksisson/sphinx/internal/hybrid/sign"
 	"golang.org/x/crypto/argon2"
 	"golang.org/x/crypto/hkdf"
 )

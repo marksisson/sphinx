@@ -57,26 +57,25 @@ The current command tree is defined in `docs/COMMANDS.md`. Global flags are:
 - `--quiet`
 - `--no-color`
 
-JSON success is one newline-terminated version-1 object on stdout. JSON failure leaves stdout empty and writes one error object to stderr. Preserve stable BSD `sysexits` mappings in `internal/cliresult`.
+JSON success is one newline-terminated version-1 object on stdout. JSON failure leaves stdout empty and writes one error object to stderr. Preserve stable BSD `sysexits` mappings in `internal/cli/result`.
 
 Prompts use the controlling terminal so JSON streams remain clean. Never include secret values, proclamation text, or private identities in errors, warnings, logs, completion, or diagnostics.
 
 ## Package map
 
 - `cmd/sphinx` — Cobra command surface and output behavior.
-- `internal/artifact` — strict plaintext model and native SOPS engine.
-- `internal/artifactmutation` — complete virtual-state mutation validation.
+- `internal/artifact` — strict plaintext model and native SOPS engine; `internal/artifact/mutation` validates complete virtual mutation state.
 - `internal/chamber`, `internal/locator` — chamber paths and tomb references.
-- `internal/config`, `internal/lockedresource`, `internal/gitresource` — project locks and immutable Git content.
-- `internal/decree`, `internal/tombstate` — signed policy, locks, trust transitions, and mutation builders.
-- `internal/guardian`, `internal/guardianstore`, `internal/keychain` — provider-authoritative guardian records.
-- `internal/hybridage`, `internal/hybridsign`, `internal/proclamation` — fixed cryptographic boundaries.
+- `internal/config`, `internal/git/env`, `internal/git/resource`, `internal/git/worktree` — project configuration, controlled Git execution, immutable Git content, and guarded caller-managed worktrees.
+- `internal/decree`, `internal/tomb/state`, `internal/tomb/lock`, `internal/tomb/path`, `internal/tomb/transaction` — signed policy, locks, managed paths, trust transitions, and exact mutation transactions.
+- `internal/guardian`, `internal/guardian/store`, `internal/guardian/keychain` — provider-authoritative guardian records.
+- `internal/hybrid/age`, `internal/hybrid/sign`, `internal/proclamation` — fixed cryptographic boundaries; `internal/proclamation/rotation` coordinates credential rotation.
 - `internal/seeker`, `internal/reveal` — live identity resolution and synchronous reveal coordination.
-- `internal/transaction`, `internal/worktree`, `internal/safefile` — journals, guards, locking, and atomic writes.
-- `internal/yamlstrict`, `internal/schema` — shared strict YAML and schema validation.
+- `internal/safefile` — crash-safe atomic writes.
+- `internal/yaml/strict`, `internal/schema` — shared strict YAML and schema validation.
 - `internal/hardening` — macOS process controls.
 - `internal/interoperability` — pinned external-oracle and known-answer tests.
-- `internal/releasecheck` — repository examples, publication, and release-policy tests.
+- `internal/release/check` — repository examples, publication, and release-policy tests.
 
 ## Fixtures
 

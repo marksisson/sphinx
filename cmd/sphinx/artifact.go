@@ -7,13 +7,13 @@ import (
 
 	"github.com/marksisson/sphinx/internal/artifact"
 	"github.com/marksisson/sphinx/internal/chamber"
-	"github.com/marksisson/sphinx/internal/cliresult"
-	"github.com/marksisson/sphinx/internal/gitresource"
-	"github.com/marksisson/sphinx/internal/lockedresource"
+	cliresult "github.com/marksisson/sphinx/internal/cli/result"
+	gitresource "github.com/marksisson/sphinx/internal/git/resource"
 	"github.com/marksisson/sphinx/internal/reveal"
 	"github.com/marksisson/sphinx/internal/schema"
-	"github.com/marksisson/sphinx/internal/tombstate"
-	"github.com/marksisson/sphinx/internal/transaction"
+	lockedresource "github.com/marksisson/sphinx/internal/tomb/lock"
+	tombstate "github.com/marksisson/sphinx/internal/tomb/state"
+	"github.com/marksisson/sphinx/internal/tomb/transaction"
 	"github.com/spf13/cobra"
 	"go.yaml.in/yaml/v3"
 )

@@ -11,7 +11,7 @@ import (
 	"regexp"
 	"strings"
 
-	"github.com/marksisson/sphinx/internal/gitenv"
+	gitenv "github.com/marksisson/sphinx/internal/git/env"
 )
 
 const (

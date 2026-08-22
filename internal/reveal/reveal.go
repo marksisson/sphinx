@@ -11,11 +11,11 @@ import (
 	"github.com/marksisson/sphinx/internal/artifact"
 	"github.com/marksisson/sphinx/internal/config"
 	"github.com/marksisson/sphinx/internal/guardian"
-	"github.com/marksisson/sphinx/internal/guardianstore"
-	"github.com/marksisson/sphinx/internal/lockedresource"
+	guardianstore "github.com/marksisson/sphinx/internal/guardian/store"
 	"github.com/marksisson/sphinx/internal/schema"
 	"github.com/marksisson/sphinx/internal/seeker"
-	"github.com/marksisson/sphinx/internal/tombstate"
+	lockedresource "github.com/marksisson/sphinx/internal/tomb/lock"
+	tombstate "github.com/marksisson/sphinx/internal/tomb/state"
 )
 
 type SeekerResolver interface {

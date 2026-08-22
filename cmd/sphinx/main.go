@@ -7,7 +7,7 @@ import (
 	"os"
 	"strings"
 
-	"github.com/marksisson/sphinx/internal/cliresult"
+	cliresult "github.com/marksisson/sphinx/internal/cli/result"
 	"github.com/spf13/cobra"
 )
 

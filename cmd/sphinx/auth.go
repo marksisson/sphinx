@@ -4,7 +4,7 @@ import (
 	"fmt"
 
 	"github.com/marksisson/sphinx/internal/proclamation"
-	"github.com/marksisson/sphinx/internal/tombstate"
+	tombstate "github.com/marksisson/sphinx/internal/tomb/state"
 )
 
 func (a *app) promptProclamation(manifest tombstate.Manifest) (*proclamation.Derived, error) {

@@ -8,14 +8,14 @@ import (
 	"os"
 	"path/filepath"
 
-	"github.com/marksisson/sphinx/internal/cliresult"
-	"github.com/marksisson/sphinx/internal/gitresource"
+	cliresult "github.com/marksisson/sphinx/internal/cli/result"
+	gitresource "github.com/marksisson/sphinx/internal/git/resource"
+	"github.com/marksisson/sphinx/internal/git/worktree"
 	"github.com/marksisson/sphinx/internal/locator"
-	"github.com/marksisson/sphinx/internal/managedpath"
 	"github.com/marksisson/sphinx/internal/proclamation"
-	"github.com/marksisson/sphinx/internal/tombstate"
-	"github.com/marksisson/sphinx/internal/transaction"
-	"github.com/marksisson/sphinx/internal/worktree"
+	managedpath "github.com/marksisson/sphinx/internal/tomb/path"
+	tombstate "github.com/marksisson/sphinx/internal/tomb/state"
+	"github.com/marksisson/sphinx/internal/tomb/transaction"
 	"github.com/spf13/cobra"
 )
 

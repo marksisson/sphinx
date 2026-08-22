@@ -12,7 +12,7 @@ import (
 
 	"filippo.io/age"
 	sopsage "github.com/getsops/sops/v3/age"
-	"github.com/marksisson/sphinx/internal/hybridage"
+	hybridage "github.com/marksisson/sphinx/internal/hybrid/age"
 	"github.com/marksisson/sphinx/internal/schema"
 	"go.yaml.in/yaml/v3"
 )

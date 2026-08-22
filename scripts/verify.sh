@@ -9,9 +9,9 @@ trap 'rm -rf "$work"' EXIT
 export GOBIN="$work/bin"
 mkdir -p "$GOBIN"
 
-for path in internal/audit internal/identity internal/policy internal/relic internal/secret internal/server internal/tomb internal/tombref launchd artifacts/sphinx-vs-setec.html; do
+for path in internal/audit internal/identity internal/policy internal/relic internal/secret internal/server internal/tombref launchd artifacts/sphinx-vs-setec.html; do
   if [[ -e "$path" ]]; then
-    echo "superseded path remains: $path" >&2
+    echo "unsupported path exists: $path" >&2
     exit 1
   fi
 done
@@ -29,11 +29,11 @@ if rg -n -g '*.go' -g '!**/*_test.go' 'net/http|ListenAndServe|http\.Server|http
   echo 'network listener, HTTP client, or remote-peer identity implementation remains' >&2
   exit 1
 fi
-if rg -n -g '*.go' -g '!**/*_test.go' 'internal/(audit|identity|policy|relic|secret|server|tomb)(["/])' .; then
-  echo 'superseded package import remains' >&2
+if rg -n -g '*.go' -g '!**/*_test.go' 'internal/(audit|identity|policy|relic|secret|server)(["/])' .; then
+  echo 'unsupported package import exists' >&2
   exit 1
 fi
-if rg -n -g '*.go' -g '!**/*_test.go' 'exec\.Command|WhoIs\(' internal/decree internal/tombstate internal/seeker internal/reveal internal/proclamationrotation; then
+if rg -n -g '*.go' -g '!**/*_test.go' 'exec\.Command|WhoIs\(' internal/decree internal/tomb/state internal/seeker internal/reveal internal/proclamation/rotation; then
   echo 'authorization boundary invokes an external command or remote-peer WhoIs' >&2
   exit 1
 fi
@@ -112,7 +112,7 @@ fi
 for target in \
   './internal/chamber FuzzParse' \
   './internal/locator FuzzParseRemote' \
-  './internal/yamlstrict FuzzValidateSyntax' \
+  './internal/yaml/strict FuzzValidateSyntax' \
   './internal/artifact FuzzDecode' \
   './internal/artifact FuzzSOPSMetadata' \
   './internal/schema FuzzDecode' \

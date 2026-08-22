@@ -17,9 +17,9 @@ import (
 	sopsage "github.com/getsops/sops/v3/age"
 	"github.com/getsops/sops/v3/config"
 	yamlstore "github.com/getsops/sops/v3/stores/yaml"
-	"github.com/marksisson/sphinx/internal/hybridage"
+	hybridage "github.com/marksisson/sphinx/internal/hybrid/age"
 	"github.com/marksisson/sphinx/internal/schema"
-	"github.com/marksisson/sphinx/internal/yamlstrict"
+	yamlstrict "github.com/marksisson/sphinx/internal/yaml/strict"
 )
 
 const (

@@ -11,16 +11,16 @@ import (
 
 	"filippo.io/age"
 	"github.com/marksisson/sphinx/internal/artifact"
-	"github.com/marksisson/sphinx/internal/cliresult"
+	cliresult "github.com/marksisson/sphinx/internal/cli/result"
 	"github.com/marksisson/sphinx/internal/config"
-	"github.com/marksisson/sphinx/internal/gitresource"
+	gitresource "github.com/marksisson/sphinx/internal/git/resource"
+	"github.com/marksisson/sphinx/internal/git/worktree"
 	"github.com/marksisson/sphinx/internal/locator"
-	"github.com/marksisson/sphinx/internal/lockedresource"
-	"github.com/marksisson/sphinx/internal/managedpath"
 	"github.com/marksisson/sphinx/internal/schema"
-	"github.com/marksisson/sphinx/internal/tombstate"
-	"github.com/marksisson/sphinx/internal/transaction"
-	"github.com/marksisson/sphinx/internal/worktree"
+	lockedresource "github.com/marksisson/sphinx/internal/tomb/lock"
+	managedpath "github.com/marksisson/sphinx/internal/tomb/path"
+	tombstate "github.com/marksisson/sphinx/internal/tomb/state"
+	"github.com/marksisson/sphinx/internal/tomb/transaction"
 	"github.com/spf13/cobra"
 )
 

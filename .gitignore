@@ -1,4 +1,8 @@
 # Build and local analysis output
-result
-result-*
+/result
+/result-*
+
+# The CLI result package is source, even when a global ignore excludes "result".
+!internal/cli/result/
+!internal/cli/result/*.go
 dist/
