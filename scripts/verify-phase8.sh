@@ -29,7 +29,7 @@ for target in \
   './internal/schema FuzzDecode' \
   './internal/decree FuzzDecode'; do
   read -r package fuzz <<<"$target"
-  nix develop -c go test "$package" -run='^$' -fuzz="^${fuzz}$" -fuzztime=2s
+  nix develop -c go test "$package" -run='^$' -fuzz="^${fuzz}$" -fuzztime=1000x
 done
 nix develop -c go vet ./...
 nix develop -c ./scripts/verify-release-candidate.sh

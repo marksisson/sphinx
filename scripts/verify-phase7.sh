@@ -34,8 +34,8 @@ nix develop -c go mod tidy
 nix develop -c gofmt -w cmd internal
 nix develop -c go test ./...
 nix develop -c go test -race ./...
-nix develop -c go test ./internal/chamber -run '^$' -fuzz '^FuzzParse$' -fuzztime=2s
-nix develop -c go test ./internal/locator -run '^$' -fuzz '^FuzzParseRemote$' -fuzztime=2s
+nix develop -c go test ./internal/chamber -run '^$' -fuzz '^FuzzParse$' -fuzztime=1000x
+nix develop -c go test ./internal/locator -run '^$' -fuzz '^FuzzParseRemote$' -fuzztime=1000x
 nix develop -c go vet ./...
 nix flake check "path:$PWD"
 git diff --check
