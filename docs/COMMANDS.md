@@ -1,4 +1,4 @@
-# Frozen initial command matrix
+# Initial command matrix
 
 All artifact/decree/proclamation mutations require an explicit caller-managed `path:WORKTREE`, a controlling terminal, and proclamation authorization. They never perform Git history or transport operations. Reveal is the only seeker-authorized operation.
 

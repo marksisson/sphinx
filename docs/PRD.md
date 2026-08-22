@@ -90,7 +90,7 @@ Guardian show/list output includes non-secret metadata only and does not export 
 
 ## CLI requirements
 
-The frozen command matrix is [redesign/COMMAND_MATRIX.md](redesign/COMMAND_MATRIX.md). Artifact authoring is interactive only and requires a controlling terminal. No secret or proclamation input is accepted from argv, stdin, files, or general environment variables.
+The initial command matrix is [COMMANDS.md](COMMANDS.md). Artifact authoring is interactive only and requires a controlling terminal. No secret or proclamation input is accepted from argv, stdin, files, or general environment variables.
 
 Decrypted values are emitted only on stdout. All-secret human output is a secrets-only YAML document in schema order. A selected value is one canonical scalar with no added newline. Terminal stdout requires a conspicuous warning and confirmation before plaintext. Clipboard, plaintext file, temporary file, dedicated descriptor, and child-command modes do not exist.
 
