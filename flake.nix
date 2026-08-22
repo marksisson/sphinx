@@ -64,6 +64,8 @@
         in
         {
           default = pkgs.mkShell {
+            SPHINX_CODESIGN_IDENTITY = "Developer ID Application: Razorrock LLC (3ZFD84NJ64)";
+            SPHINX_NOTARY_PROFILE = "RazorrockNotary";
             packages = with pkgs; [
               git
               go

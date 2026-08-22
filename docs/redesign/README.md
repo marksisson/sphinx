@@ -18,6 +18,6 @@ Implementation records:
 - [Phase 5 — decree and seeker authorization](PHASE5.md)
 - [Phase 6 — CLI replacement](PHASE6.md)
 - [Phase 7 — superseded implementation and documentation removal](PHASE7.md)
-- [Phase 8 — security review and release](PHASE8.md) *(release credentials pending)*
+- [Phase 8 — security review and release](PHASE8.md) *(clean release commit pending)*
 
 These records describe the replacement architecture. The existing CLI remains the discarded MVP until later implementation phases remove it.

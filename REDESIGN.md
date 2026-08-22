@@ -1,6 +1,6 @@
 # Sphinx CLI Redesign Specification and Transformation Plan
 
-**Status:** Owner decisions in §14 are resolved. Phases 0–7 completed on 2026-08-22. Phase 8 threat review, process hardening, parser fuzzing, operational publications, and credential-free arm64 release-candidate gates are complete. The official release remains pending because this workstation has no Developer ID Application identity or Apple notarytool profile; Phase 8 completes only after the fail-closed release procedure produces accepted signing, notarization, Gatekeeper, checksum, and SBOM evidence.
+**Status:** Owner decisions in §14 are resolved. Phases 0–7 completed on 2026-08-22. Phase 8 threat review, process hardening, parser fuzzing, operational publications, and credential-free arm64 release-candidate gates are complete. A valid Developer ID Application identity and usable Apple notarytool profile are available in the Nix development shell. The official release now awaits a reviewed clean commit; Phase 8 completes only after the fail-closed release procedure produces accepted signing, notarization, Gatekeeper, checksum, and SBOM evidence.
 
 ## 1. Purpose
 
@@ -915,7 +915,7 @@ Each phase ends with passing unit tests and updated documentation. Security beha
 
 **Exit:** only the new CLI-only design and initial formats remain; no compatibility or data-migration path exists.
 
-### Phase 8 — Security review and release (in progress — Apple release credentials pending)
+### Phase 8 — Security review and release (in progress — clean release commit pending)
 
 1. Perform a threat-model review focused on local bypass, passphrase entropy, pinned dependency integrity, Git lock integrity, recipient rotation, plaintext leakage, and rollback.
 2. Fuzz tomb-reference, chamber-path, YAML, SOPS metadata, schema, and decree parsers, including anchors, aliases, tags, duplicate keys, multi-document input, and merge keys.

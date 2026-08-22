@@ -1,6 +1,6 @@
 # Phase 8 implementation record
 
-**Status: implementation and credential-free release gates complete; official signing/notarization pending external Apple release credentials.**
+**Status: implementation and credential-free release gates complete; Apple credentials verified; official release awaits a reviewed clean commit.**
 
 ## Threat review
 
@@ -51,4 +51,4 @@ The Nix development environment supplies Go but is deliberately stripped from re
 
 `scripts/verify-phase8.sh` runs static leakage/release checks, formatting and module tidiness, all tests, all-package race tests, all seven fuzz targets, vet, the hardened arm64 candidate build/sign/execute/SBOM/checksum gate, `nix flake check path:$PWD`, and diff hygiene.
 
-The credential-free candidate gate passes on macOS Apple Silicon. This workstation has no valid Developer ID Application identity and no configured notary profile, so an official Developer ID signature and Apple notarization cannot honestly be claimed. Phase 8 remains open only for running `scripts/build-release-macos.sh VERSION` with owner-supplied Apple credentials and retaining its accepted release evidence.
+The credential-free candidate gate passes on macOS Apple Silicon. The Nix development shell exposes a valid Developer ID Application identity and a usable notarytool Keychain profile without revealing credential values. The release procedure intentionally refuses the current uncommitted multi-phase working tree: Phase 8 remains open only until the reviewed source is committed cleanly, `scripts/build-release-macos.sh VERSION` succeeds, and its accepted release evidence is retained.

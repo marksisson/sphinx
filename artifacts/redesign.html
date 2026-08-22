@@ -295,8 +295,8 @@ Decree and seeker authorization (complete)</a></li>
 <li><a href="#phase-7--remove-superseded-implementation-and-documentation-complete" id="toc-phase-7--remove-superseded-implementation-and-documentation-complete">Phase
 7 — Remove superseded implementation and documentation
 (complete)</a></li>
-<li><a href="#phase-8--security-review-and-release-in-progress--apple-release-credentials-pending" id="toc-phase-8--security-review-and-release-in-progress--apple-release-credentials-pending">Phase
-8 — Security review and release (in progress — Apple release credentials
+<li><a href="#phase-8--security-review-and-release-in-progress--clean-release-commit-pending" id="toc-phase-8--security-review-and-release-in-progress--clean-release-commit-pending">Phase
+8 — Security review and release (in progress — clean release commit
 pending)</a></li>
 </ul></li>
 <li><a href="#14-questions-requiring-owner-decisions-grill-list" id="toc-14-questions-requiring-owner-decisions-grill-list">14. Questions
@@ -325,11 +325,12 @@ Operations</a></li>
 <p><strong>Status:</strong> Owner decisions in §14 are resolved. Phases
 0–7 completed on 2026-08-22. Phase 8 threat review, process hardening,
 parser fuzzing, operational publications, and credential-free arm64
-release-candidate gates are complete. The official release remains
-pending because this workstation has no Developer ID Application
-identity or Apple notarytool profile; Phase 8 completes only after the
-fail-closed release procedure produces accepted signing, notarization,
-Gatekeeper, checksum, and SBOM evidence.</p>
+release-candidate gates are complete. A valid Developer ID Application
+identity and usable Apple notarytool profile are available in the Nix
+development shell. The official release now awaits a reviewed clean
+commit; Phase 8 completes only after the fail-closed release procedure
+produces accepted signing, notarization, Gatekeeper, checksum, and SBOM
+evidence.</p>
 <section id="1-purpose" class="level2">
 <h2>1. Purpose</h2>
 <p>Sphinx will be redesigned as a <strong>local command-line tool
@@ -2203,9 +2204,9 @@ systems.</li>
 <p><strong>Exit:</strong> only the new CLI-only design and initial
 formats remain; no compatibility or data-migration path exists.</p>
 </section>
-<section id="phase-8--security-review-and-release-in-progress--apple-release-credentials-pending" class="level3">
-<h3>Phase 8 — Security review and release (in progress — Apple release
-credentials pending)</h3>
+<section id="phase-8--security-review-and-release-in-progress--clean-release-commit-pending" class="level3">
+<h3>Phase 8 — Security review and release (in progress — clean release
+commit pending)</h3>
 <ol type="1">
 <li>Perform a threat-model review focused on local bypass, passphrase
 entropy, pinned dependency integrity, Git lock integrity, recipient

@@ -12,7 +12,7 @@ esac
 : "${SPHINX_NOTARY_PROFILE:?set SPHINX_NOTARY_PROFILE to an xcrun notarytool Keychain profile}"
 for tool in go git codesign xcrun ditto file otool shasum spctl; do command -v "$tool" >/dev/null || { echo "missing release tool: $tool" >&2; exit 69; }; done
 
-if [[ -n $(git status --porcelain) && ${SPHINX_ALLOW_DIRTY:-0} != 1 ]]; then
+if [[ -n $(git status --porcelain) ]]; then
   echo 'release source tree must be clean' >&2
   exit 75
 fi
