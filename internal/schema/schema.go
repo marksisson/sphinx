@@ -5,27 +5,50 @@ import (
 	"io/fs"
 	"os"
 	"path/filepath"
+	"regexp"
 	"strconv"
 	"strings"
 
-	"go.yaml.in/yaml/v3"
+	"github.com/marksisson/sphinx/internal/yamlstrict"
 )
 
-const Directory = ".sphinx/schemas"
+const Directory = ".tomb/schemas"
+
+var (
+	namePattern      = regexp.MustCompile(`^[a-z][a-z0-9-]*$`)
+	fieldNamePattern = regexp.MustCompile(`^[A-Za-z_][A-Za-z0-9_]*$`)
+	referencePattern = regexp.MustCompile(`^[a-z][a-z0-9-]*/v[1-9][0-9]*$`)
+)
 
 type Definition struct {
-	Name        string  `yaml:"name"`
-	Version     int     `yaml:"version"`
-	Description string  `yaml:"description,omitempty"`
-	Essence     []Field `yaml:"essence"`
-	Inscription []Field `yaml:"inscription,omitempty"`
+	Version      int     `yaml:"version"`
+	Name         string  `yaml:"name"`
+	Description  string  `yaml:"description,omitempty"`
+	Secrets      []Field `yaml:"secrets"`
+	Inscriptions []Field `yaml:"inscriptions,omitempty"`
 }
 
 type Field struct {
 	Name     string   `yaml:"name"`
 	Type     string   `yaml:"type"`
-	Prompt   string   `yaml:"prompt,omitempty"`
-	Required bool     `yaml:"required,omitempty"`
+	Required bool     `yaml:"required"`
+	Prompt   string   `yaml:"prompt"`
+	Values   []string `yaml:"values,omitempty"`
+}
+
+type definitionWire struct {
+	Version      int         `yaml:"version"`
+	Name         string      `yaml:"name"`
+	Description  string      `yaml:"description,omitempty"`
+	Secrets      []fieldWire `yaml:"secrets"`
+	Inscriptions []fieldWire `yaml:"inscriptions,omitempty"`
+}
+
+type fieldWire struct {
+	Name     string   `yaml:"name"`
+	Type     string   `yaml:"type"`
+	Required *bool    `yaml:"required"`
+	Prompt   string   `yaml:"prompt"`
 	Values   []string `yaml:"values,omitempty"`
 }
 
@@ -33,11 +56,50 @@ func (d Definition) Reference() string {
 	return fmt.Sprintf("%s/v%d", d.Name, d.Version)
 }
 
-func (f Field) Label() string {
-	if f.Prompt != "" {
-		return f.Prompt
+func (f Field) Label() string { return f.Prompt }
+
+func ValidateReference(reference string) error {
+	if !referencePattern.MatchString(reference) {
+		return fmt.Errorf("schema reference %q is invalid", reference)
 	}
-	return strings.ReplaceAll(f.Name, "_", " ")
+	return nil
+}
+
+// Decode parses one strict initial-format schema.
+func Decode(data []byte) (*Definition, error) {
+	var wire definitionWire
+	if err := yamlstrict.Unmarshal(data, &wire); err != nil {
+		return nil, fmt.Errorf("parse schema: %w", err)
+	}
+	definition := Definition{
+		Version: wire.Version, Name: wire.Name, Description: wire.Description,
+		Secrets: make([]Field, len(wire.Secrets)), Inscriptions: make([]Field, len(wire.Inscriptions)),
+	}
+	for index, field := range wire.Secrets {
+		converted, err := convertField(field)
+		if err != nil {
+			return nil, fmt.Errorf("secret field %q: %w", field.Name, err)
+		}
+		definition.Secrets[index] = converted
+	}
+	for index, field := range wire.Inscriptions {
+		converted, err := convertField(field)
+		if err != nil {
+			return nil, fmt.Errorf("inscription field %q: %w", field.Name, err)
+		}
+		definition.Inscriptions[index] = converted
+	}
+	if err := definition.Validate(); err != nil {
+		return nil, err
+	}
+	return &definition, nil
+}
+
+func convertField(field fieldWire) (Field, error) {
+	if field.Required == nil {
+		return Field{}, fmt.Errorf("required is mandatory")
+	}
+	return Field{Name: field.Name, Type: field.Type, Required: *field.Required, Prompt: field.Prompt, Values: field.Values}, nil
 }
 
 func Load(root, reference string) (*Definition, error) {
@@ -45,9 +107,9 @@ func Load(root, reference string) (*Definition, error) {
 	if err != nil {
 		return nil, err
 	}
-	for i := range definitions {
-		if definitions[i].Reference() == reference {
-			return &definitions[i], nil
+	for index := range definitions {
+		if definitions[index].Reference() == reference {
+			return &definitions[index], nil
 		}
 	}
 	return nil, fmt.Errorf("schema %q not found below %s", reference, filepath.Join(root, Directory))
@@ -63,23 +125,18 @@ func LoadAll(root string) ([]Definition, error) {
 		if entry.Type()&os.ModeSymlink != 0 {
 			return fmt.Errorf("schema path %s is a symlink", path)
 		}
-		if entry.IsDir() || (filepath.Ext(path) != ".yaml" && filepath.Ext(path) != ".yml") {
+		if entry.IsDir() || filepath.Ext(path) != ".yaml" {
 			return nil
 		}
 		data, err := os.ReadFile(path)
 		if err != nil {
 			return err
 		}
-		var definition Definition
-		decoder := yaml.NewDecoder(strings.NewReader(string(data)))
-		decoder.KnownFields(true)
-		if err := decoder.Decode(&definition); err != nil {
-			return fmt.Errorf("parse schema %s: %w", path, err)
+		definition, err := Decode(data)
+		if err != nil {
+			return fmt.Errorf("schema %s: %w", path, err)
 		}
-		if err := definition.Validate(); err != nil {
-			return fmt.Errorf("validate schema %s: %w", path, err)
-		}
-		definitions = append(definitions, definition)
+		definitions = append(definitions, *definition)
 		return nil
 	})
 	if os.IsNotExist(err) {
@@ -99,33 +156,43 @@ func LoadAll(root string) ([]Definition, error) {
 }
 
 func (d Definition) Validate() error {
-	if d.Name == "" || strings.ContainsAny(d.Name, "/\\") {
-		return fmt.Errorf("name must be a non-empty single path segment")
+	if !namePattern.MatchString(d.Name) {
+		return fmt.Errorf("schema name %q is invalid", d.Name)
 	}
 	if d.Version < 1 {
-		return fmt.Errorf("version must be positive")
+		return fmt.Errorf("schema version must be positive")
 	}
-	if len(d.Essence) == 0 {
-		return fmt.Errorf("at least one essence field is required")
+	if len(d.Secrets) == 0 {
+		return fmt.Errorf("at least one secret field is required")
 	}
 	seen := make(map[string]bool)
-	for _, group := range [][]Field{d.Essence, d.Inscription} {
+	for _, group := range [][]Field{d.Secrets, d.Inscriptions} {
 		for _, field := range group {
-			if field.Name == "" || strings.ContainsAny(field.Name, ". /\\") {
+			if !fieldNamePattern.MatchString(field.Name) {
 				return fmt.Errorf("field name %q is invalid", field.Name)
 			}
 			if seen[field.Name] {
 				return fmt.Errorf("field %q is duplicated", field.Name)
 			}
 			seen[field.Name] = true
+			if field.Prompt == "" {
+				return fmt.Errorf("field %q has no prompt", field.Name)
+			}
 			switch field.Type {
 			case "string", "integer", "boolean":
-				if len(field.Values) != 0 {
+				if field.Values != nil {
 					return fmt.Errorf("field %q has values but is not an enum", field.Name)
 				}
 			case "enum":
 				if len(field.Values) == 0 {
 					return fmt.Errorf("enum field %q has no values", field.Name)
+				}
+				values := make(map[string]bool, len(field.Values))
+				for _, value := range field.Values {
+					if values[value] {
+						return fmt.Errorf("enum field %q duplicates value %q", field.Name, value)
+					}
+					values[value] = true
 				}
 			default:
 				return fmt.Errorf("field %q has unsupported type %q", field.Name, field.Type)
@@ -135,11 +202,12 @@ func (d Definition) Validate() error {
 	return nil
 }
 
-func (d Definition) ValidateDocument(essence, inscription map[string]any) error {
-	if err := validateFields("essence", d.Essence, essence); err != nil {
+// ValidateArtifact validates the two inherent artifact value containers.
+func (d Definition) ValidateArtifact(secrets, inscriptions map[string]any) error {
+	if err := validateFields("secret", d.Secrets, secrets); err != nil {
 		return err
 	}
-	return validateFields("inscription", d.Inscription, inscription)
+	return validateFields("inscription", d.Inscriptions, inscriptions)
 }
 
 func validateFields(group string, fields []Field, values map[string]any) error {
@@ -181,7 +249,7 @@ func validateValue(field Field, value any) error {
 		}
 	case "integer":
 		switch value.(type) {
-		case int, int64, uint64:
+		case int, int8, int16, int32, int64, uint, uint8, uint16, uint32, uint64:
 		default:
 			return fmt.Errorf("must be an integer")
 		}

@@ -1,0 +1,9 @@
+format: 1
+schema: service/v1
+inscriptions:
+  environment: production
+  owner: platform
+secrets:
+  api_key: fixture-secret
+  replicas: 3
+  enabled: true

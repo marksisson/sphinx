@@ -1,0 +1,26 @@
+version: 1
+name: service
+description: Phase 4 multi-scalar interoperability fixture
+secrets:
+  - name: api_key
+    type: string
+    required: true
+    prompt: API key
+  - name: replicas
+    type: integer
+    required: true
+    prompt: Replica count
+  - name: enabled
+    type: boolean
+    required: true
+    prompt: Enabled
+inscriptions:
+  - name: environment
+    type: enum
+    values: [staging, production]
+    required: true
+    prompt: Environment
+  - name: owner
+    type: string
+    required: false
+    prompt: Owner

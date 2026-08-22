@@ -1,12 +1,17 @@
-// Package locator parses and normalizes supported sphinx tomb locators.
+// Package locator parses and canonicalizes repository-only tomb references.
 package locator
 
 import (
+	"context"
 	"fmt"
 	"net/url"
-	"path"
+	"os"
+	"os/exec"
+	"path/filepath"
 	"regexp"
 	"strings"
+
+	"github.com/marksisson/sphinx/internal/gitenv"
 )
 
 const (
@@ -15,13 +20,9 @@ const (
 	TypeGitHub = "github"
 )
 
-var (
-	githubComponent = regexp.MustCompile(`^[A-Za-z0-9_.-]+$`)
-	hostname        = regexp.MustCompile(`^[A-Za-z0-9.-]+(?::[0-9]+)?$`)
-)
+var githubComponent = regexp.MustCompile(`^[A-Za-z0-9_.-]+$`)
 
-// Locator is a parsed tomb locator. Ref names a mutable branch or tag, Rev
-// names an immutable Git commit, and Dir selects a directory within the tomb.
+// Locator identifies one Git repository and at most one ref or rev selector.
 type Locator struct {
 	Type  string
 	Path  string
@@ -29,151 +30,152 @@ type Locator struct {
 	Repo  string
 	Ref   string
 	Rev   string
-	Dir   string
-	Host  string
 	URL   string
 }
 
-// Parse parses the path, github:, and git+https/git+ssh forms accepted by
-// sphinx.
 func Parse(raw string) (Locator, error) {
-	raw = strings.TrimSpace(raw)
-	if raw == "" {
-		return Locator{}, fmt.Errorf("tomb locator is empty")
+	cwd, err := os.Getwd()
+	if err != nil {
+		return Locator{}, fmt.Errorf("determine current directory: %w", err)
 	}
-	if strings.HasPrefix(raw, "github:") {
+	return ParseAt(context.Background(), raw, cwd)
+}
+
+// ParseAt resolves path: references relative to cwd and requires the selected
+// path to be exactly a non-bare Git worktree root.
+func ParseAt(ctx context.Context, raw, cwd string) (Locator, error) {
+	if raw == "" || raw != strings.TrimSpace(raw) {
+		return Locator{}, fmt.Errorf("tomb reference is empty or has surrounding whitespace")
+	}
+	switch {
+	case strings.HasPrefix(raw, "github:"):
 		return parseGitHub(raw)
-	}
-	if strings.HasPrefix(raw, "git+") {
+	case strings.HasPrefix(raw, "git+"):
 		return parseGit(raw)
+	case strings.HasPrefix(raw, "path:"):
+		return parsePath(ctx, strings.TrimPrefix(raw, "path:"), cwd)
+	default:
+		return Locator{}, fmt.Errorf("tomb reference must use github:, git+https://, git+ssh://, or path:")
 	}
-	if strings.HasPrefix(raw, "path:") {
-		value, err := url.PathUnescape(strings.TrimPrefix(raw, "path:"))
-		if err != nil {
-			return Locator{}, fmt.Errorf("parse tomb path: %w", err)
-		}
-		if value == "" {
-			return Locator{}, fmt.Errorf("tomb path is empty")
-		}
-		return Locator{Type: TypePath, Path: value}, nil
+}
+
+func parsePath(ctx context.Context, value, cwd string) (Locator, error) {
+	if value == "" || strings.ContainsAny(value, "?#") || strings.Contains(value, "%") {
+		return Locator{}, fmt.Errorf("path tomb reference is empty or contains a selector, fragment, or encoding")
 	}
-	if strings.Contains(raw, "://") || strings.HasPrefix(raw, "http:") || strings.HasPrefix(raw, "https:") {
-		return Locator{}, fmt.Errorf("remote tomb locators must use github:, git+https:, or git+ssh:")
+	if !filepath.IsAbs(value) {
+		value = filepath.Join(cwd, value)
 	}
-	return Locator{Type: TypePath, Path: raw}, nil
+	absolute, err := filepath.Abs(value)
+	if err != nil {
+		return Locator{}, fmt.Errorf("resolve tomb worktree: %w", err)
+	}
+	resolved, err := filepath.EvalSymlinks(absolute)
+	if err != nil {
+		return Locator{}, fmt.Errorf("resolve tomb worktree without symlinks: %w", err)
+	}
+	if filepath.Clean(absolute) != filepath.Clean(resolved) {
+		return Locator{}, fmt.Errorf("path tomb reference traverses a symlink")
+	}
+	root, err := gitOutput(ctx, resolved, "rev-parse", "--show-toplevel")
+	if err != nil {
+		return Locator{}, fmt.Errorf("path tomb is not a Git worktree: %w", err)
+	}
+	bare, err := gitOutput(ctx, resolved, "rev-parse", "--is-bare-repository")
+	if err != nil || bare != "false" {
+		return Locator{}, fmt.Errorf("path tomb must be a non-bare Git worktree")
+	}
+	resolvedRoot, err := filepath.EvalSymlinks(root)
+	if err != nil {
+		return Locator{}, fmt.Errorf("resolve Git worktree root: %w", err)
+	}
+	if resolved != resolvedRoot {
+		return Locator{}, fmt.Errorf("path tomb must name the Git worktree root, not %s", resolved)
+	}
+	return Locator{Type: TypePath, Path: filepath.Clean(resolvedRoot)}, nil
 }
 
 func parseGitHub(raw string) (Locator, error) {
-	u, err := url.Parse(raw)
-	if err != nil {
-		return Locator{}, fmt.Errorf("parse GitHub tomb locator: %w", err)
+	value := strings.TrimPrefix(raw, "github:")
+	if strings.Contains(value, "#") {
+		return Locator{}, fmt.Errorf("GitHub tomb reference contains a fragment")
 	}
-	if u.Fragment != "" {
-		return Locator{}, fmt.Errorf("GitHub tomb locator must not contain a fragment")
+	pathPart, rawQuery, _ := strings.Cut(value, "?")
+	if strings.Contains(pathPart, "%") {
+		return Locator{}, fmt.Errorf("GitHub tomb repository path contains an encoding")
 	}
-	parts, err := splitPathOrOpaque(u, 3)
-	if err != nil {
-		return Locator{}, fmt.Errorf("parse GitHub tomb path: %w", err)
+	parts := strings.Split(pathPart, "/")
+	if len(parts) != 2 || !githubComponent.MatchString(parts[0]) || !githubComponent.MatchString(parts[1]) {
+		return Locator{}, fmt.Errorf("GitHub tomb reference must be github:OWNER/REPOSITORY")
 	}
-	if len(parts) < 2 || !githubComponent.MatchString(parts[0]) || !githubComponent.MatchString(parts[1]) {
-		return Locator{}, fmt.Errorf("GitHub tomb locator must be github:OWNER/REPOSITORY[/REF]")
-	}
-
-	query := u.Query()
-	if err := rejectUnknownQuery(query, "ref", "rev", "dir", "host"); err != nil {
-		return Locator{}, err
-	}
-	result := Locator{Type: TypeGitHub, Owner: parts[0], Repo: strings.TrimSuffix(parts[1], ".git")}
-	if result.Repo == "" {
+	repo := strings.TrimSuffix(parts[1], ".git")
+	if repo == "" {
 		return Locator{}, fmt.Errorf("GitHub tomb repository is empty")
 	}
-	if len(parts) == 3 {
-		if isGitHash(parts[2]) {
-			result.Rev = parts[2]
-		} else {
-			result.Ref = parts[2]
-		}
-	}
-	if value := query.Get("ref"); value != "" {
-		if result.Rev != "" {
-			return Locator{}, fmt.Errorf("GitHub tomb locator has both a ref and revision")
-		}
-		if result.Ref != "" && result.Ref != value {
-			return Locator{}, fmt.Errorf("GitHub tomb locator has conflicting refs %q and %q", result.Ref, value)
-		}
-		result.Ref = value
-	}
-	if value := query.Get("rev"); value != "" {
-		if result.Ref != "" {
-			return Locator{}, fmt.Errorf("GitHub tomb locator has both a ref and revision")
-		}
-		if result.Rev != "" && result.Rev != value {
-			return Locator{}, fmt.Errorf("GitHub tomb locator has conflicting revisions %q and %q", result.Rev, value)
-		}
-		if !isGitHash(value) {
-			return Locator{}, fmt.Errorf("GitHub tomb revision must be a full Git commit hash")
-		}
-		result.Rev = value
-	}
-	result.Dir = query.Get("dir")
-	result.Host = query.Get("host")
-	if result.Host == "" {
-		result.Host = "github.com"
-	} else if !hostname.MatchString(result.Host) {
-		return Locator{}, fmt.Errorf("invalid GitHub host %q", result.Host)
-	}
-	if err := validateDir(result.Dir); err != nil {
+	ref, rev, err := parseSelector(rawQuery)
+	if err != nil {
 		return Locator{}, err
 	}
-	if err := validateRef(result.Ref); err != nil {
-		return Locator{}, err
-	}
-	return result, nil
+	return Locator{Type: TypeGitHub, Owner: parts[0], Repo: repo, Ref: ref, Rev: rev}, nil
 }
 
 func parseGit(raw string) (Locator, error) {
 	u, err := url.Parse(strings.TrimPrefix(raw, "git+"))
 	if err != nil {
-		return Locator{}, fmt.Errorf("parse Git tomb locator: %w", err)
+		return Locator{}, fmt.Errorf("parse Git tomb reference: %w", err)
 	}
 	if u.Scheme != "https" && u.Scheme != "ssh" {
-		return Locator{}, fmt.Errorf("Git tomb locator must use git+https or git+ssh")
+		return Locator{}, fmt.Errorf("Git tomb reference must use git+https or git+ssh")
 	}
-	if u.Host == "" || u.Fragment != "" {
-		return Locator{}, fmt.Errorf("Git tomb locator must have a host and no fragment")
+	if u.Host == "" || u.Fragment != "" || u.Path == "" || u.Path == "/" {
+		return Locator{}, fmt.Errorf("Git tomb reference must have a host and repository path and no fragment")
 	}
 	if u.User != nil {
 		if u.Scheme != "ssh" || u.User.Username() != "git" {
-			return Locator{}, fmt.Errorf("Git tomb locator must not contain user credentials")
+			return Locator{}, fmt.Errorf("Git tomb reference contains embedded credentials")
 		}
 		if _, present := u.User.Password(); present {
-			return Locator{}, fmt.Errorf("Git tomb locator must not contain a password")
+			return Locator{}, fmt.Errorf("Git tomb reference contains an embedded password")
 		}
 	}
-	query := u.Query()
-	if err := rejectUnknownQuery(query, "ref", "rev", "dir"); err != nil {
+	ref, rev, err := parseSelector(u.RawQuery)
+	if err != nil {
 		return Locator{}, err
 	}
-	result := Locator{Type: TypeGit, Ref: query.Get("ref"), Rev: query.Get("rev"), Dir: query.Get("dir")}
-	if result.Rev != "" && !isGitHash(result.Rev) {
-		return Locator{}, fmt.Errorf("Git tomb revision must be a full Git commit hash")
-	}
-	if err := validateRef(result.Ref); err != nil {
-		return Locator{}, err
-	}
-	if err := validateDir(result.Dir); err != nil {
-		return Locator{}, err
-	}
-	query.Del("ref")
-	query.Del("rev")
-	query.Del("dir")
-	u.RawQuery = query.Encode()
-	result.URL = u.String()
-	return result, nil
+	u.RawQuery = ""
+	u.ForceQuery = false
+	return Locator{Type: TypeGit, URL: u.String(), Ref: ref, Rev: rev}, nil
 }
 
-// Base returns the canonical tomb locator without a ref, revision, or
-// subdirectory. It is suitable for binding a lock file to a repository.
+func parseSelector(rawQuery string) (string, string, error) {
+	if rawQuery == "" {
+		return "", "", nil
+	}
+	values, err := url.ParseQuery(rawQuery)
+	if err != nil {
+		return "", "", fmt.Errorf("parse tomb selector: %w", err)
+	}
+	for key, entries := range values {
+		if key != "ref" && key != "rev" {
+			return "", "", fmt.Errorf("unsupported tomb reference query parameter %q", key)
+		}
+		if len(entries) != 1 || entries[0] == "" {
+			return "", "", fmt.Errorf("tomb reference query parameter %q must appear once with a value", key)
+		}
+	}
+	ref, rev := values.Get("ref"), values.Get("rev")
+	if ref != "" && rev != "" {
+		return "", "", fmt.Errorf("tomb reference cannot contain both ref and rev")
+	}
+	if err := ValidateGitRef(ref); err != nil {
+		return "", "", err
+	}
+	if rev != "" && !IsFullRevision(rev) {
+		return "", "", fmt.Errorf("tomb revision must be a full lowercase Git commit ID")
+	}
+	return ref, rev, nil
+}
+
 func (r Locator) Base() string {
 	switch r.Type {
 	case TypePath:
@@ -181,82 +183,52 @@ func (r Locator) Base() string {
 	case TypeGit:
 		return "git+" + r.URL
 	case TypeGitHub:
-		host := ""
-		if r.Host != "" && r.Host != "github.com" {
-			host = "?host=" + url.QueryEscape(r.Host)
-		}
-		return "github:" + url.PathEscape(r.Owner) + "/" + url.PathEscape(r.Repo) + host
+		return "github:" + r.Owner + "/" + r.Repo
 	default:
 		return ""
 	}
 }
 
-// CloneURL returns the URL Git should use to clone this tomb.
-func (r Locator) CloneURL() string {
-	switch r.Type {
-	case TypeGit:
-		return r.URL
-	case TypeGitHub:
-		return "https://" + r.Host + "/" + r.Owner + "/" + r.Repo + ".git"
-	default:
-		return ""
-	}
-}
-
-// String returns a normalized tomb locator.
 func (r Locator) String() string {
 	base := r.Base()
-	if base == "" || r.Type == TypePath {
-		return base
+	if r.Ref != "" {
+		return base + "?ref=" + url.QueryEscape(r.Ref)
 	}
-	values := make(url.Values)
-	if r.Type == TypeGitHub {
-		selector := r.Ref
-		if r.Rev != "" {
-			selector = r.Rev
-		}
-		base = "github:" + url.PathEscape(r.Owner) + "/" + url.PathEscape(r.Repo)
-		if selector != "" {
-			base += "/" + strings.ReplaceAll(url.PathEscape(selector), "%2F", "/")
-		}
-		if r.Host != "" && r.Host != "github.com" {
-			values.Set("host", r.Host)
-		}
-	} else {
-		if r.Ref != "" {
-			values.Set("ref", r.Ref)
-		}
-		if r.Rev != "" {
-			values.Set("rev", r.Rev)
-		}
-	}
-	if r.Dir != "" && r.Dir != "." {
-		values.Set("dir", r.Dir)
-	}
-	if len(values) != 0 {
-		base += "?" + values.Encode()
+	if r.Rev != "" {
+		return base + "?rev=" + r.Rev
 	}
 	return base
 }
 
-func rejectUnknownQuery(values url.Values, allowed ...string) error {
-	known := make(map[string]bool, len(allowed))
-	for _, key := range allowed {
-		known[key] = true
+func (r Locator) CloneURL() string {
+	switch r.Type {
+	case TypePath:
+		return r.Path
+	case TypeGit:
+		return r.URL
+	case TypeGitHub:
+		return "https://github.com/" + r.Owner + "/" + r.Repo + ".git"
+	default:
+		return ""
 	}
-	for key, entries := range values {
-		if !known[key] {
-			return fmt.Errorf("unsupported tomb locator query parameter %q", key)
-		}
-		if len(entries) != 1 {
-			return fmt.Errorf("tomb locator query parameter %q must appear once", key)
-		}
-	}
-	return nil
 }
 
-// ValidateGitRef applies the safety-relevant Git check-ref-format rules
-// to a branch, tag, pull-request ref, or full revision selector.
+func (r Locator) Immutable() bool { return r.Rev != "" }
+
+func (r Locator) DefaultName() string {
+	var value string
+	switch r.Type {
+	case TypePath:
+		value = filepath.Base(r.Path)
+	case TypeGit:
+		u, _ := url.Parse(r.URL)
+		value = filepath.Base(strings.TrimSuffix(u.Path, "/"))
+	case TypeGitHub:
+		value = r.Repo
+	}
+	return strings.TrimSuffix(value, ".git")
+}
+
 func ValidateGitRef(value string) error {
 	if value == "" {
 		return nil
@@ -279,23 +251,7 @@ func ValidateGitRef(value string) error {
 	return nil
 }
 
-func validateRef(value string) error { return ValidateGitRef(value) }
-
-func validateDir(value string) error {
-	if value == "" || value == "." {
-		return nil
-	}
-	if strings.HasPrefix(value, "/") {
-		return fmt.Errorf("tomb locator directory must be relative")
-	}
-	cleaned := path.Clean(value)
-	if cleaned == ".." || strings.HasPrefix(cleaned, "../") {
-		return fmt.Errorf("tomb locator directory escapes the repository")
-	}
-	return nil
-}
-
-func isGitHash(value string) bool {
+func IsFullRevision(value string) bool {
 	if len(value) != 40 && len(value) != 64 {
 		return false
 	}
@@ -307,24 +263,12 @@ func isGitHash(value string) bool {
 	return true
 }
 
-// splitPathOrOpaque preserves slash-containing refs by limiting the split to
-// owner, repository, and the remainder.
-func splitPathOrOpaque(u *url.URL, count int) ([]string, error) {
-	value := u.EscapedPath()
-	if value == "" {
-		value = u.Opaque
+func gitOutput(ctx context.Context, directory string, arguments ...string) (string, error) {
+	command := exec.CommandContext(ctx, "git", append([]string{"-C", directory}, arguments...)...)
+	command.Env = gitenv.Environment()
+	output, err := command.CombinedOutput()
+	if err != nil {
+		return "", fmt.Errorf("git %s: %s", arguments[0], strings.TrimSpace(string(output)))
 	}
-	value = strings.TrimPrefix(strings.TrimSpace(value), "/")
-	if value == "" {
-		return nil, nil
-	}
-	parts := strings.SplitN(value, "/", count)
-	for index := range parts {
-		decoded, err := url.PathUnescape(parts[index])
-		if err != nil {
-			return nil, err
-		}
-		parts[index] = decoded
-	}
-	return parts, nil
+	return strings.TrimSpace(string(output)), nil
 }
