@@ -46,7 +46,7 @@ func TestReleaseProcedureRequiresSigningNotarizationAndPublishedEvidence(t *test
 		t.Fatal(err)
 	}
 	text := string(data)
-	for _, required := range []string{"SPHINX_CODESIGN_IDENTITY", "--options runtime", "--timestamp", "notarytool submit", "status: Accepted", "spctl --assess", "sbom.cdx.json", "SHA256SUMS", "GOARCH=arm64", "CGO_ENABLED=1", "-buildmode=pie", "-trimpath"} {
+	for _, required := range []string{"SPHINX_CODESIGN_IDENTITY", "--options runtime", "--timestamp", "notarytool submit", "status: Accepted", "spctl --assess", "sbom.cdx.json", "SHA256SUMS", "GOARCH=arm64", "CGO_ENABLED=1", "-buildmode=pie", "-trimpath", "source_commit"} {
 		if !strings.Contains(text, required) {
 			t.Fatalf("release procedure lacks %q", required)
 		}

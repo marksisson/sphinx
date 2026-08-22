@@ -47,6 +47,8 @@ The repository now publishes:
 
 The Nix development environment supplies Go but is deliberately stripped from release link flags: an earlier candidate correctly exposed an absolute Nix `libresolv` load path that hardened runtime rejected because Team IDs differed. Candidate and official scripts now use `/usr/bin/clang`, Apple system frameworks/libraries, and explicitly reject any `/nix/store` dynamic dependency.
 
+The official build also exposed a Go VCS-stamping limitation in this linked worktree: Go changed to the common administrative directory and ran `git status` outside the worktree. The release procedure now disables automatic Go VCS stamping only after enforcing a clean tree and records the exact verified `HEAD` as `source_commit` in release evidence.
+
 ## Verification
 
 `scripts/verify-phase8.sh` runs static leakage/release checks, formatting and module tidiness, all tests, all-package race tests, all seven fuzz targets, vet, the hardened arm64 candidate build/sign/execute/SBOM/checksum gate, `nix flake check path:$PWD`, and diff hygiene.

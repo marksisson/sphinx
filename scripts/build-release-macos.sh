@@ -19,6 +19,7 @@ fi
 
 root=$(git rev-parse --show-toplevel)
 cd "$root"
+source_commit=$(git rev-parse --verify HEAD)
 for gate in scripts/verify-phase0.sh scripts/verify-phase4.sh scripts/verify-phase5.sh scripts/verify-phase6.sh scripts/verify-phase7.sh scripts/verify-phase8.sh; do "$gate"; done
 
 out="$root/dist/$version"
@@ -26,7 +27,7 @@ rm -rf "$out"
 mkdir -p "$out"
 env -u NIX_LDFLAGS -u NIX_CFLAGS_COMPILE -u NIX_CC -u NIX_BINTOOLS -u DEVELOPER_DIR -u SDKROOT \
   CC=/usr/bin/clang CGO_ENABLED=1 GOOS=darwin GOARCH=arm64 \
-  go build -buildvcs=true -trimpath -buildmode=pie -ldflags='-s -w' -o "$out/sphinx" ./cmd/sphinx
+  go build -buildvcs=false -trimpath -buildmode=pie -ldflags='-s -w' -o "$out/sphinx" ./cmd/sphinx
 if otool -L "$out/sphinx" | grep -q /nix/store; then
   echo 'release binary contains a Nix-store dynamic-library path' >&2
   exit 1
@@ -52,6 +53,7 @@ go run ./scripts/generate-sbom.go "$out/sphinx" "$version" "$out/sphinx-$version
 
 cat >"$out/RELEASE.txt" <<EOF
 Sphinx $version
+source_commit: $source_commit
 platform: darwin/arm64
 artifact: sphinx-$version-darwin-arm64.zip
 signature: Developer ID hardened runtime

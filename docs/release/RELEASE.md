@@ -25,7 +25,7 @@ export SPHINX_NOTARY_PROFILE='sphinx-notary'
 scripts/build-release-macos.sh v0.1.0
 ```
 
-The procedure runs every phase gate, builds an arm64 PIE with cgo and the system Apple frameworks, rejects Nix-store dynamic-library paths, applies a hardened-runtime signature and secure timestamp, verifies the signature, executes the binary's core-limit path, submits the archive to Apple, requires `Accepted`, runs Gatekeeper assessment, generates a CycloneDX 1.5 SBOM from embedded Go build information, and writes SHA-256 checksums.
+The procedure requires a clean source tree, records the exact verified `HEAD` in `RELEASE.txt`, runs every phase gate, builds an arm64 PIE with cgo and the system Apple frameworks, rejects Nix-store dynamic-library paths, applies a hardened-runtime signature and secure timestamp, verifies the signature, executes the binary's core-limit path, submits the archive to Apple, requires `Accepted`, runs Gatekeeper assessment, generates a CycloneDX 1.5 SBOM from embedded Go build information, and writes SHA-256 checksums.
 
 `dist/VERSION/` contains:
 
@@ -38,7 +38,7 @@ The procedure runs every phase gate, builds an arm64 PIE with cgo and the system
 - `gatekeeper.txt`
 - `RELEASE.txt`
 
-Publish the archive, SBOM, checksums, and evidence files together. Verify the uploaded downloads against `SHA256SUMS` from a separate machine before announcing the release. Keep the signed commit, exact `flake.lock`, `go.sum`, and CI log with the release record.
+Publish the archive, SBOM, checksums, and evidence files together. Verify the uploaded downloads against `SHA256SUMS` from a separate machine before announcing the release. Keep the recorded source commit, exact `flake.lock`, `go.sum`, and CI log with the release record. The Go build disables automatic VCS stamping because this repository may be checked out as a linked Git worktree, whose common administrative directory is misidentified by the Go tool; the fail-closed clean-tree check and explicit `source_commit` provide the release provenance instead.
 
 ## Credential-free candidate check
 
