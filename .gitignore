@@ -1,5 +1,4 @@
-# Local Decree, Chronicle, and build output
-decree.yaml
-sphinx-chronicle.jsonl
+# Build and local analysis output
 result
 result-*
+dist/
