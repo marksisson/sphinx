@@ -32,6 +32,7 @@ type app struct {
 	openTerminal         func() (commandTerminal, error)
 	outputIsTerminal     func(io.Writer) bool
 	renderHelpGraphic    func(io.Writer) bool
+	detectHelpBackground func(io.Writer) helpBackground
 	disableCoreDumps     func() error
 	newGuardianStore     func() guardianOperations
 	securityPrepared     bool
@@ -58,7 +59,7 @@ func newApp(out, errOut io.Writer) (*app, error) {
 	if err != nil {
 		return nil, err
 	}
-	return &app{out: out, errOut: errOut, globalConfig: global, cwd: os.Getwd, materializer: gitresource.Materializer{CacheRoot: cache}, seekers: seeker.NewTailscaleResolver(), openTerminal: func() (commandTerminal, error) { return proclamation.OpenControllingTerminal() }, outputIsTerminal: func(w io.Writer) bool { f, ok := w.(*os.File); return ok && term.IsTerminal(int(f.Fd())) }, renderHelpGraphic: renderKittySphinx, disableCoreDumps: hardening.DisableCoreDumps, newGuardianStore: func() guardianOperations { store := guardianstore.New(); return store }}, nil
+	return &app{out: out, errOut: errOut, globalConfig: global, cwd: os.Getwd, materializer: gitresource.Materializer{CacheRoot: cache}, seekers: seeker.NewTailscaleResolver(), openTerminal: func() (commandTerminal, error) { return proclamation.OpenControllingTerminal() }, outputIsTerminal: func(w io.Writer) bool { f, ok := w.(*os.File); return ok && term.IsTerminal(int(f.Fd())) }, renderHelpGraphic: renderKittySphinx, detectHelpBackground: detectTerminalBackground, disableCoreDumps: hardening.DisableCoreDumps, newGuardianStore: func() guardianOperations { store := guardianstore.New(); return store }}, nil
 }
 func globalConfigPath() (string, error) { return config.GlobalPath() }
 

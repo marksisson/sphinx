@@ -54,6 +54,7 @@ func TestEmbeddedSphinxAndKittyTransmission(t *testing.T) {
 
 func TestRootHelpRendersGraphicButSubcommandHelpDoesNot(t *testing.T) {
 	t.Setenv("TERM", "xterm-256color")
+	t.Setenv("NO_COLOR", "")
 	var out bytes.Buffer
 	a, err := newApp(&out, io.Discard)
 	if err != nil {
@@ -64,13 +65,14 @@ func TestRootHelpRendersGraphicButSubcommandHelpDoesNot(t *testing.T) {
 		_, _ = io.WriteString(w, "<graphic>\n")
 		return true
 	}
+	a.detectHelpBackground = func(io.Writer) helpBackground { return helpBackgroundDark }
 	root := newRootCommand(a)
 	root.InitDefaultHelpCmd()
 	root.SetOut(&out)
 	if err := root.Help(); err != nil {
 		t.Fatal(err)
 	}
-	if !strings.HasPrefix(out.String(), "<graphic>\nManage signed tombs") {
+	if !strings.HasPrefix(out.String(), "<graphic>\n") || !strings.Contains(out.String(), "Manage signed tombs") {
 		t.Fatalf("root help did not start with graphic: %q", out.String())
 	}
 
@@ -90,6 +92,7 @@ func TestRootHelpRendersGraphicButSubcommandHelpDoesNot(t *testing.T) {
 
 func TestRootGraphicRequiresEligibleTerminalOutput(t *testing.T) {
 	t.Setenv("TERM", "xterm-256color")
+	t.Setenv("NO_COLOR", "")
 	var out bytes.Buffer
 	calls := 0
 	a := &app{
@@ -124,5 +127,11 @@ func TestRootGraphicRequiresEligibleTerminalOutput(t *testing.T) {
 	a.writeRootGraphic(io.Discard)
 	if calls != 1 {
 		t.Fatal("renderer called for TERM=dumb")
+	}
+	t.Setenv("TERM", "xterm-256color")
+	t.Setenv("NO_COLOR", "1")
+	a.writeRootGraphic(io.Discard)
+	if calls != 1 {
+		t.Fatal("renderer called with NO_COLOR")
 	}
 }

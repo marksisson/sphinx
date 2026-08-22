@@ -84,10 +84,15 @@ func newRootCommand(a *app) *cobra.Command {
 	root.SetHelpCommand(newHelpCommand(root, a))
 	textHelp := root.HelpFunc()
 	root.SetHelpFunc(func(command *cobra.Command, args []string) {
+		out := command.OutOrStdout()
 		if command == root {
-			a.writeRootGraphic(command.OutOrStdout())
+			a.writeRootGraphic(out)
 		}
+		var rendered bytes.Buffer
+		command.SetOut(&rendered)
 		textHelp(command, args)
+		command.SetOut(out)
+		_ = a.writeHelpText(out, rendered.String())
 	})
 	return root
 }
@@ -123,8 +128,7 @@ func newHelpCommand(root *cobra.Command, a *app) *cobra.Command {
 			if target == root {
 				a.writeRootGraphic(w)
 			}
-			_, err := io.WriteString(w, text)
-			return err
+			return a.writeHelpText(w, text)
 		}, nil)
 	}}
 }
