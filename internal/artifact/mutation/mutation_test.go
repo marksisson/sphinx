@@ -14,11 +14,11 @@ import (
 	"time"
 
 	"github.com/marksisson/sphinx/internal/artifact"
-	gitenv "github.com/marksisson/sphinx/internal/git/env"
 	"github.com/marksisson/sphinx/internal/git/worktree"
 	hybridage "github.com/marksisson/sphinx/internal/hybrid/age"
 	hybridsign "github.com/marksisson/sphinx/internal/hybrid/sign"
 	"github.com/marksisson/sphinx/internal/schema"
+	testgit "github.com/marksisson/sphinx/internal/testgit"
 	"github.com/marksisson/sphinx/internal/tomb/transaction"
 )
 
@@ -353,7 +353,7 @@ func mutationWorktree(t *testing.T) *worktree.Worktree {
 func mutationGit(t *testing.T, root string, args ...string) {
 	t.Helper()
 	cmd := exec.Command("git", append([]string{"-C", root}, args...)...)
-	cmd.Env = gitenv.Environment()
+	cmd.Env = testgit.Environment()
 	if out, err := cmd.CombinedOutput(); err != nil {
 		t.Fatalf("git %v: %s", args, out)
 	}

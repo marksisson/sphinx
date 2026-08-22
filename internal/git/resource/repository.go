@@ -8,13 +8,12 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"fmt"
+	"io"
 	"io/fs"
 	"os"
-	"os/exec"
 	"path/filepath"
 	"strings"
 
-	gitenv "github.com/marksisson/sphinx/internal/git/env"
 	"github.com/marksisson/sphinx/internal/locator"
 	"golang.org/x/sys/unix"
 )
@@ -53,60 +52,29 @@ type TreeEntry struct {
 // ResolveCommit resolves a ref, rev, or default branch without mutating a
 // worktree. Ambiguous same-name branch/tag refs are rejected.
 func ResolveCommit(ctx context.Context, reference locator.Locator) (string, error) {
+	if err := ctx.Err(); err != nil {
+		return "", err
+	}
 	if reference.Type == locator.TypePath && reference.Ref == "" && reference.Rev == "" {
-		output, err := git(ctx, "", "-C", reference.Path, "rev-parse", "--verify", "HEAD^{commit}")
+		opened, err := openWorktreeRepository(reference.Path)
 		if err != nil {
 			return "", err
 		}
-		commit := strings.TrimSpace(string(output))
-		if !locator.IsFullRevision(commit) {
-			return "", fmt.Errorf("local tomb HEAD did not resolve to a full lowercase Git commit ID")
+		defer opened.close()
+		head, err := opened.repository.Head()
+		if err != nil {
+			return "", err
 		}
-		return commit, nil
+		commit, err := opened.repository.CommitObject(head.Hash())
+		if err != nil {
+			return "", err
+		}
+		return commit.Hash.String(), nil
 	}
 	if reference.Rev != "" {
 		return reference.Rev, nil
 	}
-	selector := reference.Ref
-	patterns := []string{"HEAD"}
-	if selector != "" {
-		patterns = []string{"refs/heads/" + selector, "refs/tags/" + selector, "refs/tags/" + selector + "^{}"}
-	}
-	arguments := append([]string{"ls-remote", "--"}, reference.CloneURL())
-	arguments = append(arguments, patterns...)
-	output, err := git(ctx, "", arguments...)
-	if err != nil {
-		return "", err
-	}
-	var head, tag, peeled string
-	for _, line := range strings.Split(strings.TrimSpace(string(output)), "\n") {
-		fields := strings.Fields(line)
-		if len(fields) != 2 {
-			continue
-		}
-		switch {
-		case fields[1] == "HEAD" || strings.HasPrefix(fields[1], "refs/heads/"):
-			head = fields[0]
-		case strings.HasSuffix(fields[1], "^{}"):
-			peeled = fields[0]
-		case strings.HasPrefix(fields[1], "refs/tags/"):
-			tag = fields[0]
-		}
-	}
-	if selector != "" && head != "" && tag != "" {
-		return "", fmt.Errorf("Git ref %q is ambiguous between a branch and tag", selector)
-	}
-	commit := head
-	if commit == "" {
-		commit = peeled
-	}
-	if commit == "" {
-		commit = tag
-	}
-	if !locator.IsFullRevision(commit) {
-		return "", fmt.Errorf("Git selector did not resolve to a full commit ID")
-	}
-	return commit, nil
+	return resolveRemoteCommit(ctx, reference.CloneURL(), reference.Ref)
 }
 
 func DefaultCacheRoot() (string, error) {
@@ -129,6 +97,13 @@ func (m Materializer) Materialize(ctx context.Context, reference locator.Locator
 	}
 	if reference.Rev != "" && reference.Rev != approvedCommit {
 		return nil, fmt.Errorf("tomb rev selector does not match approved commit")
+	}
+	if reference.Type == locator.TypePath {
+		source, err := openWorktreeRepository(reference.Path)
+		if err != nil {
+			return nil, fmt.Errorf("open local tomb source: %w", err)
+		}
+		source.close()
 	}
 	cacheRoot, err := filepath.Abs(m.CacheRoot)
 	if err != nil {
@@ -181,11 +156,8 @@ func (m Materializer) Materialize(ctx context.Context, reference locator.Locator
 	if err != nil {
 		return nil, fmt.Errorf("create tomb cache candidate: %w", err)
 	}
-	if err := os.Remove(candidate); err != nil {
-		return nil, fmt.Errorf("prepare tomb cache candidate: %w", err)
-	}
 	defer os.RemoveAll(candidate)
-	if _, err := git(ctx, "", "clone", "--mirror", "--no-hardlinks", "--", reference.CloneURL(), candidate); err != nil {
+	if err := cloneMirror(ctx, reference.CloneURL(), candidate); err != nil {
 		return nil, fmt.Errorf("materialize tomb repository: %w", err)
 	}
 	candidateRepository := &Repository{gitDirectory: candidate, commit: approvedCommit, identity: identity}
@@ -223,15 +195,23 @@ func secureCacheRoot(root string) error {
 }
 
 func (r *Repository) validate(ctx context.Context) error {
+	if err := ctx.Err(); err != nil {
+		return err
+	}
 	info, err := os.Lstat(r.gitDirectory)
 	if err != nil || !info.IsDir() || info.Mode()&os.ModeSymlink != 0 {
 		return fmt.Errorf("cache entry is not a non-symlink Git directory")
 	}
-	actual, err := git(ctx, r.gitDirectory, "rev-parse", "--verify", r.commit+"^{commit}")
+	opened, err := openBareRepository(r.gitDirectory)
 	if err != nil {
 		return err
 	}
-	if strings.TrimSpace(string(actual)) != r.commit {
+	defer opened.close()
+	commit, err := repositoryCommit(opened.repository, r.commit)
+	if err != nil {
+		return err
+	}
+	if commit.Hash.String() != r.commit {
 		return fmt.Errorf("cache commit resolved to unexpected object")
 	}
 	return nil
@@ -241,29 +221,50 @@ func (r *Repository) Commit() string   { return r.commit }
 func (r *Repository) Identity() string { return r.identity }
 
 func (r *Repository) ReadBlob(ctx context.Context, path string) (Blob, error) {
+	if err := ctx.Err(); err != nil {
+		return Blob{}, err
+	}
 	if path == "" || strings.ContainsRune(path, '\x00') {
 		return Blob{}, fmt.Errorf("Git blob path is empty or invalid")
 	}
-	output, err := git(ctx, r.gitDirectory, "ls-tree", "-z", "--full-tree", r.commit, "--", ":(literal)"+path)
+	opened, err := openBareRepository(r.gitDirectory)
 	if err != nil {
 		return Blob{}, err
 	}
-	entries, err := parseTree(output)
+	defer opened.close()
+	commit, err := repositoryCommit(opened.repository, r.commit)
 	if err != nil {
 		return Blob{}, err
 	}
-	if len(entries) != 1 || entries[0].Path != path {
-		return Blob{}, fmt.Errorf("committed path %q is missing or ambiguous", path)
+	root, err := commit.Tree()
+	if err != nil {
+		return Blob{}, err
 	}
-	entry := entries[0]
-	if entry.Type != "blob" || (entry.Mode != "100644" && entry.Mode != "100755") {
+	entry, err := exactTreeEntry(opened.repository, root, path)
+	if err != nil {
+		return Blob{}, fmt.Errorf("committed path %q is missing or ambiguous: %w", path, err)
+	}
+	mode := formatMode(entry.Mode)
+	if entry.Mode != 0o100644 && entry.Mode != 0o100755 {
 		return Blob{}, fmt.Errorf("committed path %q must be a regular Git blob", path)
 	}
-	data, err := git(ctx, r.gitDirectory, "cat-file", "blob", entry.OID)
+	objectBlob, err := opened.repository.BlobObject(entry.Hash)
 	if err != nil {
 		return Blob{}, err
 	}
-	blob := Blob{Path: path, Mode: entry.Mode, OID: entry.OID, Data: data}
+	reader, err := objectBlob.Reader()
+	if err != nil {
+		return Blob{}, err
+	}
+	data, readErr := io.ReadAll(reader)
+	closeErr := reader.Close()
+	if readErr != nil {
+		return Blob{}, readErr
+	}
+	if closeErr != nil {
+		return Blob{}, closeErr
+	}
+	blob := Blob{Path: path, Mode: mode, OID: entry.Hash.String(), Data: data}
 	if err := r.ValidateManagedBlob(ctx, blob); err != nil {
 		return Blob{}, err
 	}
@@ -271,42 +272,33 @@ func (r *Repository) ReadBlob(ctx context.Context, path string) (Blob, error) {
 }
 
 func (r *Repository) ListTree(ctx context.Context) ([]TreeEntry, error) {
-	output, err := git(ctx, r.gitDirectory, "ls-tree", "-r", "-z", "--full-tree", r.commit)
+	opened, err := openBareRepository(r.gitDirectory)
 	if err != nil {
 		return nil, err
 	}
-	return parseTree(output)
-}
-
-func parseTree(output []byte) ([]TreeEntry, error) {
-	records := bytes.Split(output, []byte{0})
-	entries := make([]TreeEntry, 0, len(records))
-	for _, record := range records {
-		if len(record) == 0 {
-			continue
-		}
-		header, name, found := bytes.Cut(record, []byte{'\t'})
-		parts := bytes.Fields(header)
-		if !found || len(parts) != 3 {
-			return nil, fmt.Errorf("malformed Git tree entry")
-		}
-		entries = append(entries, TreeEntry{Mode: string(parts[0]), Type: string(parts[1]), OID: string(parts[2]), Path: string(name)})
-	}
-	return entries, nil
+	defer opened.close()
+	return listCommitTree(ctx, opened.repository, r.commit)
 }
 
 func (r *Repository) ValidateManagedBlob(ctx context.Context, blob Blob) error {
+	if err := ctx.Err(); err != nil {
+		return err
+	}
 	if bytes.HasPrefix(blob.Data, []byte("version https://git-lfs.github.com/spec/v1\n")) {
 		return fmt.Errorf("managed path %q is a Git LFS pointer", blob.Path)
 	}
-	output, err := git(ctx, r.gitDirectory, "check-attr", "-z", "--source="+r.commit,
-		"filter", "working-tree-encoding", "text", "eol", "--", blob.Path)
+	opened, err := openBareRepository(r.gitDirectory)
 	if err != nil {
 		return err
 	}
-	parts := bytes.Split(output, []byte{0})
-	for index := 0; index+2 < len(parts); index += 3 {
-		attribute, value := string(parts[index+1]), string(parts[index+2])
+	defer opened.close()
+	attributeNames := []string{"filter", "working-tree-encoding", "text", "eol"}
+	attributes, err := committedAttributes(opened.repository, r.commit, blob.Path, attributeNames)
+	if err != nil {
+		return err
+	}
+	for _, attribute := range attributeNames {
+		value := attributes[attribute]
 		safe := value == "unspecified" || (attribute == "text" && value == "unset")
 		if !safe {
 			return fmt.Errorf("managed path %q has unsafe Git attribute %s=%s", blob.Path, attribute, value)
@@ -319,36 +311,24 @@ func (r *Repository) IsDescendant(ctx context.Context, ancestor, descendant stri
 	if !locator.IsFullRevision(ancestor) || !locator.IsFullRevision(descendant) {
 		return false, fmt.Errorf("descendant check requires full commit IDs")
 	}
-	command := exec.CommandContext(ctx, "git", "--git-dir", r.gitDirectory, "merge-base", "--is-ancestor", ancestor, descendant)
-	command.Env = gitEnvironment()
-	err := command.Run()
-	if err == nil {
-		return true, nil
+	if err := ctx.Err(); err != nil {
+		return false, err
 	}
-	if exit, ok := err.(*exec.ExitError); ok && exit.ExitCode() == 1 {
-		return false, nil
-	}
-	return false, fmt.Errorf("check Git ancestry: %w", err)
-}
-
-func git(ctx context.Context, gitDirectory string, arguments ...string) ([]byte, error) {
-	if gitDirectory != "" {
-		arguments = append([]string{"--git-dir", gitDirectory}, arguments...)
-	}
-	command := exec.CommandContext(ctx, "git", arguments...)
-	command.Env = gitEnvironment()
-	output, err := command.CombinedOutput()
+	opened, err := openBareRepository(r.gitDirectory)
 	if err != nil {
-		message := strings.TrimSpace(string(output))
-		if message == "" {
-			message = err.Error()
-		}
-		return nil, fmt.Errorf("git %s: %s", arguments[0], message)
+		return false, err
 	}
-	return output, nil
+	defer opened.close()
+	ancestorCommit, err := repositoryCommit(opened.repository, ancestor)
+	if err != nil {
+		return false, err
+	}
+	descendantCommit, err := repositoryCommit(opened.repository, descendant)
+	if err != nil {
+		return false, err
+	}
+	return ancestorCommit.IsAncestor(descendantCommit)
 }
-
-func gitEnvironment() []string { return gitenv.Environment() }
 
 func syncTree(root string) error {
 	var directories []string

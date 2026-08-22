@@ -36,7 +36,7 @@ import (
 const (
 	ageVersion   = "v1.3.1"
 	sopsVersion  = "v3.12.1"
-	circlVersion = "v1.6.1"
+	circlVersion = "v1.6.3"
 )
 
 func fixture(t *testing.T, name string) []byte {

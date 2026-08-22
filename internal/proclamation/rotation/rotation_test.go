@@ -14,7 +14,6 @@ import (
 	"filippo.io/age"
 	"github.com/marksisson/sphinx/internal/artifact"
 	"github.com/marksisson/sphinx/internal/decree"
-	gitenv "github.com/marksisson/sphinx/internal/git/env"
 	gitresource "github.com/marksisson/sphinx/internal/git/resource"
 	"github.com/marksisson/sphinx/internal/git/worktree"
 	"github.com/marksisson/sphinx/internal/guardian"
@@ -22,6 +21,7 @@ import (
 	hybridsign "github.com/marksisson/sphinx/internal/hybrid/sign"
 	"github.com/marksisson/sphinx/internal/proclamation"
 	"github.com/marksisson/sphinx/internal/schema"
+	testgit "github.com/marksisson/sphinx/internal/testgit"
 	tombstate "github.com/marksisson/sphinx/internal/tomb/state"
 	"github.com/marksisson/sphinx/internal/tomb/transaction"
 )
@@ -191,7 +191,7 @@ func TestRotationRollbackAtEveryInstallStep(t *testing.T) {
 func git(t *testing.T, directory string, args ...string) {
 	t.Helper()
 	command := exec.Command("git", append([]string{"-C", directory}, args...)...)
-	command.Env = gitenv.Environment()
+	command.Env = testgit.Environment()
 	if output, err := command.CombinedOutput(); err != nil {
 		t.Fatalf("git %v: %v: %s", args, err, strings.TrimSpace(string(output)))
 	}

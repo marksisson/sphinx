@@ -9,8 +9,8 @@ import (
 	"strings"
 	"testing"
 
-	gitenv "github.com/marksisson/sphinx/internal/git/env"
 	"github.com/marksisson/sphinx/internal/git/worktree"
+	testgit "github.com/marksisson/sphinx/internal/testgit"
 )
 
 func TestExecuteCommitsExactPostImages(t *testing.T) {
@@ -213,7 +213,7 @@ func transactionWorktree(t *testing.T) *worktree.Worktree {
 func runGit(t *testing.T, root string, args ...string) {
 	t.Helper()
 	cmd := exec.Command("git", append([]string{"-C", root}, args...)...)
-	cmd.Env = gitenv.Environment()
+	cmd.Env = testgit.Environment()
 	if out, err := cmd.CombinedOutput(); err != nil {
 		t.Fatalf("git %v: %s", args, out)
 	}

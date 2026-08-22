@@ -11,6 +11,7 @@ import (
 	cliresult "github.com/marksisson/sphinx/internal/cli/result"
 	"github.com/marksisson/sphinx/internal/config"
 	gitresource "github.com/marksisson/sphinx/internal/git/resource"
+	gitruntime "github.com/marksisson/sphinx/internal/git/runtime"
 	"github.com/marksisson/sphinx/internal/guardian"
 	guardianstore "github.com/marksisson/sphinx/internal/guardian/store"
 	"github.com/marksisson/sphinx/internal/hardening"
@@ -136,6 +137,9 @@ func (a *app) prepareCommand() error {
 	}
 	if err := a.establishSecurityControls(); err != nil {
 		return err
+	}
+	if err := gitruntime.Initialize(); err != nil {
+		return cliresult.New("internal_error", "cannot initialize in-process Git runtime", cliresult.EXSoftware, false, err)
 	}
 	if a.guardians == nil {
 		if a.newGuardianStore == nil {

@@ -16,7 +16,6 @@ import (
 	"github.com/marksisson/sphinx/internal/artifact"
 	"github.com/marksisson/sphinx/internal/config"
 	"github.com/marksisson/sphinx/internal/decree"
-	gitenv "github.com/marksisson/sphinx/internal/git/env"
 	gitresource "github.com/marksisson/sphinx/internal/git/resource"
 	"github.com/marksisson/sphinx/internal/guardian"
 	guardianstore "github.com/marksisson/sphinx/internal/guardian/store"
@@ -25,6 +24,7 @@ import (
 	"github.com/marksisson/sphinx/internal/proclamation"
 	"github.com/marksisson/sphinx/internal/schema"
 	"github.com/marksisson/sphinx/internal/seeker"
+	testgit "github.com/marksisson/sphinx/internal/testgit"
 	tombstate "github.com/marksisson/sphinx/internal/tomb/state"
 	"github.com/spf13/cobra"
 	"tailscale.com/ipn/ipnstate"
@@ -402,7 +402,7 @@ func newCLIFixture(t *testing.T) cliFixture {
 func git(t *testing.T, dir string, args ...string) {
 	t.Helper()
 	cmd := exec.Command("git", append([]string{"-C", dir}, args...)...)
-	cmd.Env = gitenv.Environment()
+	cmd.Env = testgit.Environment()
 	if out, err := cmd.CombinedOutput(); err != nil {
 		t.Fatalf("git %v: %s", args, out)
 	}
@@ -410,7 +410,7 @@ func git(t *testing.T, dir string, args ...string) {
 func gitOutput(t *testing.T, dir string, args ...string) string {
 	t.Helper()
 	cmd := exec.Command("git", append([]string{"-C", dir}, args...)...)
-	cmd.Env = gitenv.Environment()
+	cmd.Env = testgit.Environment()
 	out, err := cmd.Output()
 	if err != nil {
 		t.Fatal(err)

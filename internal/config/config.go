@@ -7,14 +7,13 @@ import (
 	"encoding/base64"
 	"fmt"
 	"os"
-	"os/exec"
 	"path/filepath"
 	"regexp"
 	"strings"
 	"syscall"
 	"time"
 
-	gitenv "github.com/marksisson/sphinx/internal/git/env"
+	gitrepository "github.com/marksisson/sphinx/internal/git/repository"
 	"github.com/marksisson/sphinx/internal/guardian"
 	"github.com/marksisson/sphinx/internal/locator"
 	"github.com/marksisson/sphinx/internal/safefile"
@@ -382,26 +381,11 @@ func Discover(ctx context.Context, start string) (*Store, error) {
 	if err != nil {
 		return nil, fmt.Errorf("resolve project location: %w", err)
 	}
-	root, err := gitText(ctx, resolved, "rev-parse", "--show-toplevel")
+	worktree, err := gitrepository.DiscoverWorktree(ctx, resolved)
 	if err != nil {
 		return nil, fmt.Errorf("discover project Git worktree: %w", err)
 	}
-	bare, err := gitText(ctx, resolved, "rev-parse", "--is-bare-repository")
-	if err != nil || bare != "false" {
-		return nil, fmt.Errorf("project operations require a non-bare Git worktree")
-	}
-	root, err = filepath.EvalSymlinks(root)
-	if err != nil {
-		return nil, err
-	}
-	gitDir, err := gitText(ctx, root, "rev-parse", "--absolute-git-dir")
-	if err != nil {
-		return nil, err
-	}
-	gitDir, err = filepath.EvalSymlinks(gitDir)
-	if err != nil {
-		return nil, err
-	}
+	root, gitDir := worktree.Root, worktree.GitDir
 	sphinxDirectory := filepath.Join(root, ".sphinx")
 	if info, err := os.Lstat(sphinxDirectory); err == nil {
 		if !info.IsDir() || info.Mode()&os.ModeSymlink != 0 {
@@ -529,14 +513,4 @@ func (s *Store) UpdateLocks(ctx context.Context, proposals []LockProposal) error
 		}
 		return nil
 	})
-}
-
-func gitText(ctx context.Context, directory string, args ...string) (string, error) {
-	command := exec.CommandContext(ctx, "git", append([]string{"-C", directory}, args...)...)
-	command.Env = gitenv.Environment()
-	output, err := command.CombinedOutput()
-	if err != nil {
-		return "", fmt.Errorf("git %s: %s", args[0], strings.TrimSpace(string(output)))
-	}
-	return strings.TrimSpace(string(output)), nil
 }

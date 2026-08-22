@@ -1,6 +1,6 @@
-// Package env constructs a deterministic baseline for read-only Git
-// subprocesses without inheriting repository/index/config redirection.
-package env
+// Package testgit constructs a deterministic native-Git oracle environment
+// for tests and fixture generation. Production code must not import it.
+package testgit
 
 import (
 	"os"

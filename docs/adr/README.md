@@ -10,5 +10,7 @@ These accepted ADRs freeze the initial security and format decisions for the CLI
 6. [Proclamation credential bundle](0006-proclamation-credential-bundle.md)
 7. [Hybrid decree-signature suite](0007-hybrid-decree-signatures.md)
 8. [Decree trust bootstrap and rotation](0008-decree-trust-bootstrap.md)
+9. [Pure-Go Git engine](0009-pure-go-git-engine.md)
+10. [CIRCL 1.6.3 dependency update](0010-circl-1.6.3.md)
 
 Changes to an accepted wire format, trust boundary, or pinned suite require a superseding ADR and the rotation/format-version process in [`docs/ARCHITECTURE.md`](../ARCHITECTURE.md).

@@ -9,6 +9,18 @@ import (
 	"github.com/marksisson/sphinx/internal/locator"
 )
 
+func TestMaterializeRejectsLocalSourceAlternates(t *testing.T) {
+	root, commit := createTomb(t)
+	alternates := filepath.Join(root, ".git", "objects", "info", "alternates")
+	if err := os.WriteFile(alternates, []byte(filepath.Join(root, ".git", "objects")+"\n"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	reference := locator.Locator{Type: locator.TypePath, Path: root}
+	if _, err := (Materializer{CacheRoot: filepath.Join(t.TempDir(), "cache")}).Materialize(context.Background(), reference, commit); err == nil {
+		t.Fatal("Materialize unexpectedly accepted a local object alternate")
+	}
+}
+
 func TestValidateContentRejectsSubmoduleAndSymlinkManagedPaths(t *testing.T) {
 	t.Run("submodule artifact", func(t *testing.T) {
 		root, commit := createTomb(t)

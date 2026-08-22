@@ -6,12 +6,11 @@ import (
 	"fmt"
 	"net/url"
 	"os"
-	"os/exec"
 	"path/filepath"
 	"regexp"
 	"strings"
 
-	gitenv "github.com/marksisson/sphinx/internal/git/env"
+	gitrepository "github.com/marksisson/sphinx/internal/git/repository"
 )
 
 const (
@@ -77,22 +76,11 @@ func parsePath(ctx context.Context, value, cwd string) (Locator, error) {
 	if filepath.Clean(absolute) != filepath.Clean(resolved) {
 		return Locator{}, fmt.Errorf("path tomb reference traverses a symlink")
 	}
-	root, err := gitOutput(ctx, resolved, "rev-parse", "--show-toplevel")
+	worktree, err := gitrepository.OpenWorktree(ctx, resolved)
 	if err != nil {
-		return Locator{}, fmt.Errorf("path tomb is not a Git worktree: %w", err)
+		return Locator{}, fmt.Errorf("path tomb is not an exact non-bare Git worktree root: %w", err)
 	}
-	bare, err := gitOutput(ctx, resolved, "rev-parse", "--is-bare-repository")
-	if err != nil || bare != "false" {
-		return Locator{}, fmt.Errorf("path tomb must be a non-bare Git worktree")
-	}
-	resolvedRoot, err := filepath.EvalSymlinks(root)
-	if err != nil {
-		return Locator{}, fmt.Errorf("resolve Git worktree root: %w", err)
-	}
-	if resolved != resolvedRoot {
-		return Locator{}, fmt.Errorf("path tomb must name the Git worktree root, not %s", resolved)
-	}
-	return Locator{Type: TypePath, Path: filepath.Clean(resolvedRoot)}, nil
+	return Locator{Type: TypePath, Path: worktree.Root}, nil
 }
 
 func parseGitHub(raw string) (Locator, error) {
@@ -261,14 +249,4 @@ func IsFullRevision(value string) bool {
 		}
 	}
 	return true
-}
-
-func gitOutput(ctx context.Context, directory string, arguments ...string) (string, error) {
-	command := exec.CommandContext(ctx, "git", append([]string{"-C", directory}, arguments...)...)
-	command.Env = gitenv.Environment()
-	output, err := command.CombinedOutput()
-	if err != nil {
-		return "", fmt.Errorf("git %s: %s", arguments[0], strings.TrimSpace(string(output)))
-	}
-	return strings.TrimSpace(string(output)), nil
 }

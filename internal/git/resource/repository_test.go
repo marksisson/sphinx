@@ -4,9 +4,14 @@ import (
 	"bytes"
 	"context"
 	"crypto/sha256"
+	"io"
+	"log"
+	"net/http"
+	"net/http/httptest"
 	"os"
 	"os/exec"
 	"path/filepath"
+	"strings"
 	"sync"
 	"testing"
 
@@ -15,6 +20,7 @@ import (
 
 func TestMaterializeAndValidateExactObjectDatabaseContent(t *testing.T) {
 	root, commit := createTomb(t)
+	t.Setenv("PATH", "")
 	reference, err := locator.ParseAt(context.Background(), "path:"+root, root)
 	if err != nil {
 		t.Fatal(err)
@@ -40,6 +46,24 @@ func TestMaterializeAndValidateExactObjectDatabaseContent(t *testing.T) {
 	}
 	if mode := mustStat(t, cache).Mode().Perm(); mode != 0o700 {
 		t.Fatalf("cache mode = %#o", mode)
+	}
+}
+
+func TestMaterializeSupportsSHA256ObjectFormat(t *testing.T) {
+	root, commit := createTombWithFormat(t, "sha256")
+	reference, err := locator.ParseAt(context.Background(), "path:"+root, root)
+	if err != nil {
+		t.Fatal(err)
+	}
+	repository, err := (Materializer{CacheRoot: filepath.Join(t.TempDir(), "cache")}).Materialize(context.Background(), reference, commit)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(repository.Commit()) != 64 {
+		t.Fatalf("SHA-256 commit length = %d", len(repository.Commit()))
+	}
+	if _, err := repository.ValidateContent(context.Background()); err != nil {
+		t.Fatal(err)
 	}
 }
 
@@ -73,6 +97,30 @@ func TestMaterializeIsRaceSafeAndRepairsCorruption(t *testing.T) {
 	}
 	if _, err := materializer.Materialize(context.Background(), reference, commit); err != nil {
 		t.Fatalf("corrupt cache was not repaired: %v", err)
+	}
+}
+
+func TestMaterializeRepairsSymlinkedObjectDatabase(t *testing.T) {
+	root, commit := createTomb(t)
+	reference, _ := locator.ParseAt(context.Background(), "path:"+root, root)
+	materializer := Materializer{CacheRoot: filepath.Join(t.TempDir(), "cache")}
+	repository, err := materializer.Materialize(context.Background(), reference, commit)
+	if err != nil {
+		t.Fatal(err)
+	}
+	objects := filepath.Join(repository.gitDirectory, "objects")
+	if err := os.RemoveAll(objects); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Symlink(filepath.Join(root, ".git", "objects"), objects); err != nil {
+		t.Fatal(err)
+	}
+	repaired, err := materializer.Materialize(context.Background(), reference, commit)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if information, err := os.Lstat(filepath.Join(repaired.gitDirectory, "objects")); err != nil || !information.IsDir() || information.Mode()&os.ModeSymlink != 0 {
+		t.Fatalf("repaired objects metadata = %v, %v", information, err)
 	}
 }
 
@@ -173,6 +221,23 @@ func TestValidateContentPreservesExactCaseAndCaseCollisions(t *testing.T) {
 	}
 }
 
+func TestResolveCommitTransportErrorDoesNotLeakRemoteURL(t *testing.T) {
+	server := httptest.NewUnstartedServer(http.HandlerFunc(func(http.ResponseWriter, *http.Request) {}))
+	server.Config.ErrorLog = log.New(io.Discard, "", 0)
+	server.StartTLS()
+	defer server.Close()
+	remoteURL := server.URL + "/private/repository.git"
+	_, err := ResolveCommit(context.Background(), locator.Locator{Type: locator.TypeGit, URL: remoteURL})
+	if err == nil {
+		t.Fatal("ResolveCommit unexpectedly trusted test TLS server")
+	}
+	for _, forbidden := range []string{server.Listener.Addr().String(), "private", "repository.git"} {
+		if strings.Contains(err.Error(), forbidden) {
+			t.Fatalf("transport error leaked %q: %v", forbidden, err)
+		}
+	}
+}
+
 func TestResolveCommitReadsExplicitPathWorktreeHEAD(t *testing.T) {
 	root, commit := createTomb(t)
 	reference, err := locator.ParseAt(context.Background(), "path:"+root, root)
@@ -180,6 +245,17 @@ func TestResolveCommitReadsExplicitPathWorktreeHEAD(t *testing.T) {
 		t.Fatal(err)
 	}
 	resolved, err := ResolveCommit(context.Background(), reference)
+	if err != nil || resolved != commit {
+		t.Fatalf("resolved=%q want=%q err=%v", resolved, commit, err)
+	}
+}
+
+func TestResolveCommitReadsLinkedWorktreeHEAD(t *testing.T) {
+	root, commit := createTomb(t)
+	linked := filepath.Join(t.TempDir(), "linked")
+	runGit(t, root, "branch", "linked", commit)
+	runGit(t, root, "worktree", "add", "--quiet", linked, "linked")
+	resolved, err := ResolveCommit(context.Background(), locator.Locator{Type: locator.TypePath, Path: linked})
 	if err != nil || resolved != commit {
 		t.Fatalf("resolved=%q want=%q err=%v", resolved, commit, err)
 	}
@@ -224,8 +300,13 @@ func TestDescendantCheck(t *testing.T) {
 
 func createTomb(t *testing.T) (string, string) {
 	t.Helper()
+	return createTombWithFormat(t, "sha1")
+}
+
+func createTombWithFormat(t *testing.T, objectFormat string) (string, string) {
+	t.Helper()
 	root := t.TempDir()
-	runGit(t, root, "init", "--quiet", "--initial-branch=main")
+	runGit(t, root, "init", "--quiet", "--initial-branch=main", "--object-format="+objectFormat)
 	runGit(t, root, "config", "user.name", "Sphinx Test")
 	runGit(t, root, "config", "user.email", "sphinx@example.invalid")
 	write(t, root, ".tomb/tomb.yaml", "version: 1\n")

@@ -13,21 +13,15 @@
         system:
         let
           pkgs = pkgsFor system;
+          buildGo126Module = pkgs.buildGoModule.override { go = pkgs.go_1_26; };
         in
-        pkgs.buildGoModule {
+        buildGo126Module {
           pname = "sphinx";
           version = "0.1.0";
           src = ./.;
           subPackages = [ "cmd/sphinx" ];
-          vendorHash = "sha256-Pq1ePAmVbV6BUJDjsVl7zTXkC+aeUpLcAfKx7gH/F0o=";
-          nativeBuildInputs = [
-            pkgs.git
-            pkgs.makeWrapper
-          ];
-          postInstall = ''
-            wrapProgram "$out/bin/sphinx" \
-              --prefix PATH : ${pkgs.lib.makeBinPath [ pkgs.git ]}
-          '';
+          vendorHash = "sha256-vGSc35RLCH98ragZcKxb72Q3v11LacoUVZoyuXprTB0=";
+          nativeCheckInputs = [ pkgs.git ];
           meta = {
             description = "Local CLI for signed Git tombs and identity-aware artifact reveal";
             homepage = "https://github.com/marksisson/sphinx";
@@ -68,7 +62,7 @@
             SPHINX_NOTARY_PROFILE = "RazorrockNotary";
             packages = with pkgs; [
               git
-              go
+              go_1_26
               gopls
             ];
           };

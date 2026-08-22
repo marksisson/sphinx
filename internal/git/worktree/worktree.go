@@ -8,11 +8,10 @@ import (
 	"crypto/sha256"
 	"fmt"
 	"os"
-	"os/exec"
 	"path/filepath"
 	"strings"
 
-	gitenv "github.com/marksisson/sphinx/internal/git/env"
+	gitrepository "github.com/marksisson/sphinx/internal/git/repository"
 	"github.com/marksisson/sphinx/internal/locator"
 	"golang.org/x/sys/unix"
 )
@@ -63,26 +62,11 @@ func Open(ctx context.Context, rawReference, cwd, cacheRoot string) (*Worktree, 
 	if err := unix.Access(reference.Path, unix.W_OK); err != nil {
 		return nil, fmt.Errorf("tomb worktree is not writable: %w", err)
 	}
-	gitDir, err := gitText(ctx, reference.Path, "rev-parse", "--absolute-git-dir")
+	discovered, err := gitrepository.OpenWorktree(ctx, reference.Path)
 	if err != nil {
 		return nil, err
 	}
-	commonDir, err := gitText(ctx, reference.Path, "rev-parse", "--git-common-dir")
-	if err != nil {
-		return nil, err
-	}
-	if !filepath.IsAbs(commonDir) {
-		commonDir = filepath.Join(reference.Path, commonDir)
-	}
-	gitDir, err = filepath.EvalSymlinks(gitDir)
-	if err != nil {
-		return nil, fmt.Errorf("resolve Git administrative directory: %w", err)
-	}
-	commonDir, err = filepath.EvalSymlinks(commonDir)
-	if err != nil {
-		return nil, fmt.Errorf("resolve Git common directory: %w", err)
-	}
-	return &Worktree{Root: reference.Path, GitDir: gitDir, CommonDir: commonDir}, nil
+	return &Worktree{Root: discovered.Root, GitDir: discovered.GitDir, CommonDir: discovered.CommonDir}, nil
 }
 
 func (w *Worktree) GuardMutation(ctx context.Context, targets []string) (*Guard, error) {
@@ -110,12 +94,8 @@ func (w *Worktree) guardMutation(ctx context.Context, targets []string, editable
 	if err := w.rejectGitOperation(ctx); err != nil {
 		return nil, err
 	}
-	unmerged, err := git(ctx, w.Root, "ls-files", "-u", "-z")
-	if err != nil {
+	if err := w.rejectUnmergedIndex(ctx); err != nil {
 		return nil, err
-	}
-	if len(unmerged) != 0 {
-		return nil, fmt.Errorf("tomb worktree has unmerged index entries")
 	}
 	guard := &Guard{worktree: w, states: make(map[string]targetState, len(targets))}
 	seen := make(map[string]bool, len(targets))
@@ -131,19 +111,19 @@ func (w *Worktree) guardMutation(ctx context.Context, targets []string, editable
 		if err := rejectSymlinksBelow(w.Root, canonical); err != nil {
 			return nil, err
 		}
-		status, err := git(ctx, w.Root, "status", "--porcelain=v1", "-z", "--untracked-files=all", "--", ":(literal)"+canonical)
+		status, changed, err := w.targetStatus(ctx, canonical)
 		if err != nil {
 			return nil, err
 		}
-		if len(status) != 0 {
+		if changed {
 			if !editable[canonical] {
 				return nil, fmt.Errorf("mutation target %q has staged, unstaged, or untracked changes", canonical)
 			}
-			if len(status) < 2 || status[0] != ' ' && !(status[0] == '?' && status[1] == '?') {
+			if status.Staging != ' ' && !(status.Staging == '?' && status.Worktree == '?') {
 				return nil, fmt.Errorf("editable mutation input %q has staged changes", canonical)
 			}
 		}
-		if err := validateAttributes(ctx, w.Root, canonical); err != nil {
+		if err := w.validateTargetAttributes(ctx, canonical); err != nil {
 			return nil, err
 		}
 		state, err := inspectTarget(filepath.Join(w.Root, filepath.FromSlash(canonical)))
@@ -186,7 +166,7 @@ func (w *Worktree) ProspectiveBlob(ctx context.Context, target string) ([]byte, 
 	if err := rejectSymlinksBelow(w.Root, canonical); err != nil {
 		return nil, [32]byte{}, err
 	}
-	if err := validateAttributes(ctx, w.Root, canonical); err != nil {
+	if err := w.validateTargetAttributes(ctx, canonical); err != nil {
 		return nil, [32]byte{}, err
 	}
 	filename := filepath.Join(w.Root, filepath.FromSlash(canonical))
@@ -204,16 +184,8 @@ func (w *Worktree) ProspectiveBlob(ctx context.Context, target string) ([]byte, 
 	if bytes.HasPrefix(data, []byte("version https://git-lfs.github.com/spec/v1\n")) {
 		return nil, [32]byte{}, fmt.Errorf("managed worktree path %q is a Git LFS pointer", canonical)
 	}
-	rawOID, err := hashObject(ctx, w.Root, data, "--no-filters")
-	if err != nil {
+	if _, err := w.hashBlob(ctx, data); err != nil {
 		return nil, [32]byte{}, err
-	}
-	prospectiveOID, err := hashObject(ctx, w.Root, data, "--path="+canonical)
-	if err != nil {
-		return nil, [32]byte{}, err
-	}
-	if rawOID != prospectiveOID {
-		return nil, [32]byte{}, fmt.Errorf("managed worktree path %q would be transformed by Git", canonical)
 	}
 	return data, sha256.Sum256(data), nil
 }
@@ -260,40 +232,6 @@ func rejectSymlinksBelow(root, target string) error {
 	return nil
 }
 
-func validateAttributes(ctx context.Context, root, target string) error {
-	for _, source := range []string{"", "HEAD"} {
-		arguments := []string{"check-attr", "-z"}
-		if source != "" {
-			arguments = append(arguments, "--source="+source)
-		}
-		arguments = append(arguments, "filter", "working-tree-encoding", "text", "eol", "--", target)
-		output, err := git(ctx, root, arguments...)
-		if err != nil {
-			return err
-		}
-		parts := bytes.Split(output, []byte{0})
-		for index := 0; index+2 < len(parts); index += 3 {
-			attribute, value := string(parts[index+1]), string(parts[index+2])
-			safe := value == "unspecified" || (attribute == "text" && value == "unset")
-			if !safe {
-				return fmt.Errorf("managed worktree path %q has unsafe Git attribute %s=%s", target, attribute, value)
-			}
-		}
-	}
-	return nil
-}
-
-func hashObject(ctx context.Context, root string, data []byte, option string) (string, error) {
-	command := exec.CommandContext(ctx, "git", "-C", root, "hash-object", option, "--stdin")
-	command.Env = gitenv.Environment()
-	command.Stdin = bytes.NewReader(data)
-	output, err := command.CombinedOutput()
-	if err != nil {
-		return "", fmt.Errorf("compute prospective Git blob: %s", strings.TrimSpace(string(output)))
-	}
-	return strings.TrimSpace(string(output)), nil
-}
-
 func inspectTarget(filename string) (targetState, error) {
 	info, err := os.Lstat(filename)
 	if os.IsNotExist(err) {
@@ -315,19 +253,4 @@ func inspectTarget(filename string) (targetState, error) {
 func within(root, candidate string) bool {
 	relative, err := filepath.Rel(root, candidate)
 	return err == nil && relative != ".." && !strings.HasPrefix(relative, ".."+string(filepath.Separator))
-}
-
-func gitText(ctx context.Context, root string, args ...string) (string, error) {
-	output, err := git(ctx, root, args...)
-	return strings.TrimSpace(string(output)), err
-}
-
-func git(ctx context.Context, root string, args ...string) ([]byte, error) {
-	command := exec.CommandContext(ctx, "git", append([]string{"-C", root}, args...)...)
-	command.Env = gitenv.Environment()
-	output, err := command.CombinedOutput()
-	if err != nil {
-		return nil, fmt.Errorf("git %s: %s", args[0], strings.TrimSpace(string(output)))
-	}
-	return output, nil
 }
