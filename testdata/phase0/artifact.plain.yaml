@@ -1,0 +1,6 @@
+format: 1
+schema: phase-zero/v1
+inscriptions:
+  environment: interoperability
+secrets:
+  api_key: phase-zero-secret
