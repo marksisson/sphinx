@@ -1,4 +1,4 @@
-package phase7
+package releasecheck
 
 import (
 	"context"
@@ -17,7 +17,7 @@ func root(t *testing.T) string {
 	t.Helper()
 	_, filename, _, ok := runtime.Caller(0)
 	if !ok {
-		t.Fatal("locate phase 7 test")
+		t.Fatal("locate release-check test")
 	}
 	return filepath.Clean(filepath.Join(filepath.Dir(filename), "..", ".."))
 }
@@ -32,17 +32,17 @@ func read(t *testing.T, name string) []byte {
 }
 
 func TestInitialReleaseExamplesDecode(t *testing.T) {
-	if _, err := schema.Decode(read(t, "schema.example.yaml")); err != nil {
+	if _, err := schema.Decode(read(t, "docs/examples/schema.yaml")); err != nil {
 		t.Fatalf("schema example: %v", err)
 	}
-	if _, err := decree.Decode(read(t, "decree.example.yaml")); err != nil {
+	if _, err := decree.Decode(read(t, "docs/examples/decree.yaml")); err != nil {
 		t.Fatalf("decree example: %v", err)
 	}
-	if _, err := config.DecodeProject(context.Background(), read(t, "sphinx.example.yaml"), root(t)); err != nil {
+	if _, err := config.DecodeProject(context.Background(), read(t, "docs/examples/project-config.yaml"), root(t)); err != nil {
 		t.Fatalf("project example: %v", err)
 	}
 	filename := filepath.Join(t.TempDir(), "config.yaml")
-	if err := os.WriteFile(filename, read(t, "global.example.yaml"), 0o600); err != nil {
+	if err := os.WriteFile(filename, read(t, "docs/examples/global-config.yaml"), 0o600); err != nil {
 		t.Fatal(err)
 	}
 	if _, err := config.LoadGlobal(context.Background(), filename, root(t)); err != nil {

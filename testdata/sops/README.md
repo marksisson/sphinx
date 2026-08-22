@@ -1,4 +1,4 @@
-# Phase 4 artifact fixtures
+# Native hybrid SOPS artifact fixtures
 
 These files freeze initial-format multi-secret and multi-inscription SOPS artifacts produced through the native in-process age v1.3.1 and SOPS v3.12.1 engine.
 
@@ -13,6 +13,6 @@ SHA-256:
 612d4ab548aa9f7f66725df830c61396a50384b616a88ed3093fb082ad840a97  multi-guardian.sops.yaml
 35e4018bd3d39521dd26da1428eccc2f8bce5639d8081e4721173ce59dec910f  plain.yaml
 f90d0b09fd64c7184ab598f48daf6d07bfa736e1bc455dc36a66df272795b690  proclamation-only.sops.yaml
-37d3059f6df8561c229b15e09749ca6b876f6907635c8d9c99f9a0991609abb4  schema.yaml
+fd32233fc615a58c0b4e5c18690f47b405632df7d2c33d10a8fb1feb5619edda  schema.yaml
 098fda7fce1e00f40a0e59f7a53d4be45c391427d1fcc31e701db3146aac2838  test-identities.txt
 ```

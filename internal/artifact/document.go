@@ -1,5 +1,5 @@
 // Package artifact defines the initial plaintext artifact domain model. SOPS
-// encryption is layered on this model in Phase 4.
+// encryption is layered on this model by the native SOPS engine.
 package artifact
 
 import (

@@ -25,7 +25,7 @@ export SPHINX_NOTARY_PROFILE='sphinx-notary'
 scripts/build-release-macos.sh v0.1.0
 ```
 
-The procedure requires a clean source tree, records the exact verified `HEAD` in `RELEASE.txt`, runs every phase gate, builds an arm64 PIE with cgo and the system Apple frameworks, rejects Nix-store dynamic-library paths, applies a hardened-runtime signature and secure timestamp, verifies the signature, executes the binary's core-limit path, signs and submits the disk image to Apple, requires `Accepted`, staples and validates its ticket, runs Gatekeeper assessment on the distributable image, generates a CycloneDX 1.5 SBOM from embedded Go build information, and writes SHA-256 checksums.
+The procedure requires a clean source tree, records the exact verified `HEAD` in `RELEASE.txt`, runs the complete verification gate, builds an arm64 PIE with cgo and the system Apple frameworks, rejects Nix-store dynamic-library paths, applies a hardened-runtime signature and secure timestamp, verifies the signature, executes the binary's core-limit path, signs and submits the disk image to Apple, requires `Accepted`, staples and validates its ticket, runs Gatekeeper assessment on the distributable image, generates a CycloneDX 1.5 SBOM from embedded Go build information, and writes SHA-256 checksums.
 
 `dist/VERSION/` contains:
 

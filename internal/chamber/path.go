@@ -18,7 +18,7 @@ type Path struct {
 }
 
 // Parse validates the context-free chamber grammar. Filesystem and Git tree
-// checks are intentionally performed by the Phase 2 resolver.
+// checks are intentionally performed by the locked-resource resolver.
 func Parse(value string) (Path, error) {
 	if value == "" {
 		return Path{}, fmt.Errorf("chamber path is empty")

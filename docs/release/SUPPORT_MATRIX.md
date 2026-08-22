@@ -29,4 +29,4 @@ Runtime invokes no age/SOPS executable or plugin. External pinned tools are inte
 
 ## Release acceptance
 
-A distributable disk image is acceptable only when all phase gates pass, the binary is arm64 PIE, both soft/hard core-size limits are established as zero before command execution, the hardened-runtime Developer ID signature verifies, Apple notarization succeeds, its ticket is stapled and validated on the disk image, Gatekeeper accepts that distributable image, disk-image and binary SHA-256 checksums are published, and the CycloneDX SBOM corresponds to that binary's embedded Go module build information.
+A distributable disk image is acceptable only when the complete verification gate passes, the binary is arm64 PIE, both soft/hard core-size limits are established as zero before command execution, the hardened-runtime Developer ID signature verifies, Apple notarization succeeds, its ticket is stapled and validated on the disk image, Gatekeeper accepts that distributable image, disk-image and binary SHA-256 checksums are published, and the CycloneDX SBOM corresponds to that binary's embedded Go module build information.

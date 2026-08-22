@@ -1,4 +1,4 @@
-package phase0_test
+package interoperability_test
 
 import (
 	"bytes"
@@ -41,7 +41,7 @@ const (
 
 func fixture(t *testing.T, name string) []byte {
 	t.Helper()
-	path := filepath.Join("..", "..", "testdata", "phase0", name)
+	path := filepath.Join("..", "..", "testdata", "interoperability", name)
 	b, err := os.ReadFile(path)
 	if err != nil {
 		t.Fatal(err)
@@ -65,8 +65,11 @@ func TestPinnedModuleVersions(t *testing.T) {
 	}
 }
 
-func TestWordlistFixture(t *testing.T) {
-	wordlist := fixture(t, "eff_large_wordlist.txt")
+func TestEmbeddedWordlistSource(t *testing.T) {
+	wordlist, err := os.ReadFile(filepath.Join("..", "proclamation", "eff_large_wordlist.txt"))
+	if err != nil {
+		t.Fatal(err)
+	}
 	digest := sha256.Sum256(wordlist)
 	if got, want := hex.EncodeToString(digest[:]), "addd35536511597a02fa0a9ff1e5284677b8883b83e986e43f15a3db996b903e"; got != want {
 		t.Fatalf("wordlist SHA-256 = %s, want %s", got, want)
@@ -105,7 +108,7 @@ func TestNativeAgeAndSOPSExternalInteroperability(t *testing.T) {
 	if err := w.Close(); err != nil {
 		t.Fatal(err)
 	}
-	identityPath := filepath.Join("..", "..", "testdata", "phase0", "hybrid-identity.txt")
+	identityPath := filepath.Join("..", "..", "testdata", "interoperability", "hybrid-identity.txt")
 	cmd := exec.Command(ageBin, "--decrypt", "--identity", identityPath)
 	cmd.Stdin = bytes.NewReader(encrypted.Bytes())
 	if out, err := cmd.CombinedOutput(); err != nil || string(out) != "in-process-to-age-cli" {
@@ -378,12 +381,11 @@ func assertBytes(t *testing.T, name string, got, want []byte) {
 
 func TestFixtureChecksums(t *testing.T) {
 	checksums := map[string]string{
-		"artifact.plain.yaml":    "53e3ff1fe5e590c97ed375b5ca73fe95028a37dcb92c466286760df24f9d421f",
-		"artifact.sops.yaml":     "281c05f38edfb2e16c969ba91f785525f17297bdfecf3599397dee62682f714d",
-		"crypto-vectors.json":    "29292850e9ffee3d214723d7eb3c9fcfbcbd94d07da5a5c64d15e6184cf45381",
-		"eff_large_wordlist.txt": "addd35536511597a02fa0a9ff1e5284677b8883b83e986e43f15a3db996b903e",
-		"hybrid-identity.txt":    "8540d88ba5e0aefec499580f9355900d2b9d8eb01ba3218bd7633dced926b278",
-		"hybrid-recipient.txt":   "c76002b0410f1fad4b12a7b275c3cf2c99240a0fcbb064a3163da42a546efd67",
+		"artifact.plain.yaml":  "53e3ff1fe5e590c97ed375b5ca73fe95028a37dcb92c466286760df24f9d421f",
+		"artifact.sops.yaml":   "281c05f38edfb2e16c969ba91f785525f17297bdfecf3599397dee62682f714d",
+		"crypto-vectors.json":  "29292850e9ffee3d214723d7eb3c9fcfbcbd94d07da5a5c64d15e6184cf45381",
+		"hybrid-identity.txt":  "8540d88ba5e0aefec499580f9355900d2b9d8eb01ba3218bd7633dced926b278",
+		"hybrid-recipient.txt": "c76002b0410f1fad4b12a7b275c3cf2c99240a0fcbb064a3163da42a546efd67",
 	}
 	for name, want := range checksums {
 		digest := sha256.Sum256(fixture(t, name))

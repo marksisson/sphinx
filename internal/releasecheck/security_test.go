@@ -1,4 +1,4 @@
-package phase8
+package releasecheck
 
 import (
 	"os"
@@ -20,14 +20,15 @@ func repositoryRoot(t *testing.T) string {
 func TestSecurityAndOperationalPublicationsExist(t *testing.T) {
 	root := repositoryRoot(t)
 	for _, name := range []string{
-		"docs/security/THREAT_MODEL_REVIEW.md",
+		"docs/security/THREAT_MODEL.md",
 		"docs/release/SUPPORT_MATRIX.md",
-		"docs/release/RELEASE.md",
+		"docs/release/PROCESS.md",
 		"docs/operations/RECOVERY.md",
 		"docs/operations/GUARDIAN_COMPROMISE.md",
 		"docs/operations/PROCLAMATION_ROTATION.md",
 		"docs/operations/ROLLBACK.md",
 		"scripts/build-release-macos.sh",
+		"scripts/verify.sh",
 		"scripts/verify-release-candidate.sh",
 	} {
 		data, err := os.ReadFile(filepath.Join(root, name))

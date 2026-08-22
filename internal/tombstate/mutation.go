@@ -16,7 +16,7 @@ import (
 	"github.com/marksisson/sphinx/internal/worktree"
 )
 
-// MutationBuilder is the concrete Phase 5 signed-state builder used by every
+// MutationBuilder is the concrete signed-state builder used by every
 // ordinary artifact/schema mutation. It increments generation exactly once,
 // regenerates exhaustive locks from the complete virtual worktree, and signs
 // exact decree bytes under the current manifest.

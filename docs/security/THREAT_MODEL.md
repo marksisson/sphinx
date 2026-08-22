@@ -1,4 +1,4 @@
-# Phase 8 threat-model review
+# Threat-model review
 
 Date: 2026-08-22
 
@@ -24,9 +24,9 @@ Within the CLI, every reveal performs a fresh tailscaled LocalAPI status request
 
 ### Dependency and cryptographic integrity
 
-**Risk: controlled with a pinned supply chain.** `go.mod`, `go.sum`, `flake.lock`, the Nix fixed vendor hash, Phase 0 version tests, fixture checksums, and independent native age/SOPS interoperability tests pin and exercise age v1.3.1, SOPS v3.12.1, CIRCL v1.6.1, and their module graph. Runtime executes no age/SOPS executable or plugin. Release builds use the locked Nix input or the checked module sums, `-trimpath`, PIE, cgo, and the exact `darwin/arm64` target. The release procedure records checksums, build information, an SBOM, signing verification, notarization status, and Gatekeeper assessment.
+**Risk: controlled with a pinned supply chain.** `go.mod`, `go.sum`, `flake.lock`, the Nix fixed vendor hash, pinned-version tests, fixture checksums, and independent native age/SOPS interoperability tests pin and exercise age v1.3.1, SOPS v3.12.1, CIRCL v1.6.1, and their module graph. Runtime executes no age/SOPS executable or plugin. Release builds use the locked Nix input or the checked module sums, `-trimpath`, PIE, cgo, and the exact `darwin/arm64` target. The release procedure records checksums, build information, an SBOM, signing verification, notarization status, and Gatekeeper assessment.
 
-A malicious upstream source accepted into a future dependency update remains a supply-chain risk. Updates require review, checksum/vendor-hash changes, interoperability vectors, all phase gates, and a new signed/notarized artifact.
+A malicious upstream source accepted into a future dependency update remains a supply-chain risk. Updates require review, checksum/vendor-hash changes, interoperability vectors, the complete verification gate, and a new signed/notarized artifact.
 
 ### Git locks, mutable refs, and local worktrees
 

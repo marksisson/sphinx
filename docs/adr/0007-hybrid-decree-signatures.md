@@ -21,4 +21,4 @@ The public-bundle fingerprint is `SHA256:` plus unpadded base64url SHA-256 of th
 
 ## Evidence
 
-`testdata/phase0/crypto-vectors.json` fixes Argon2id/HKDF outputs, signing public keys, frame bytes, fingerprint, and deterministic signatures. `TestProclamationAndSignatureKnownAnswerVector` regenerates and verifies every value.
+`testdata/interoperability/crypto-vectors.json` fixes Argon2id/HKDF outputs, signing public keys, frame bytes, fingerprint, and deterministic signatures. `TestProclamationAndSignatureKnownAnswerVector` regenerates and verifies every value.

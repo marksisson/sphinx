@@ -20,7 +20,7 @@ fi
 root=$(git rev-parse --show-toplevel)
 cd "$root"
 source_commit=$(git rev-parse --verify HEAD)
-for gate in scripts/verify-phase0.sh scripts/verify-phase4.sh scripts/verify-phase5.sh scripts/verify-phase6.sh scripts/verify-phase7.sh scripts/verify-phase8.sh; do "$gate"; done
+scripts/verify.sh
 
 out="$root/dist/$version"
 rm -rf "$out"

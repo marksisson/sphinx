@@ -1,6 +1,6 @@
 version: 1
 name: service
-description: Phase 4 multi-scalar interoperability fixture
+description: Native hybrid SOPS multi-scalar interoperability fixture
 secrets:
   - name: api_key
     type: string

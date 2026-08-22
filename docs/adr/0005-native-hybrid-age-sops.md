@@ -24,4 +24,4 @@ Artifacts use SOPS v3.12.1 AES-256-GCM and MAC behavior with `encrypted_regex` e
 
 ## Evidence
 
-`testdata/phase0/` contains a native hybrid identity and a SOPS 3.12.1 encrypted artifact. `scripts/verify-phase0.sh` builds exact age/SOPS versions, tests age interoperability in both directions, decrypts externally generated SOPS in process, and decrypts in-process SOPS with the external CLI.
+`testdata/interoperability/` contains a native hybrid identity and a SOPS 3.12.1 encrypted artifact. `scripts/verify.sh` builds exact age/SOPS versions, tests age interoperability in both directions, decrypts externally generated SOPS in process, and decrypts in-process SOPS with the external CLI.

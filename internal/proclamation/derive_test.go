@@ -19,7 +19,7 @@ type derivationVector struct {
 }
 
 func TestDeriveKnownAnswerPublicBundle(t *testing.T) {
-	data, err := os.ReadFile("../../testdata/phase0/crypto-vectors.json")
+	data, err := os.ReadFile("../../testdata/interoperability/crypto-vectors.json")
 	if err != nil {
 		t.Fatal(err)
 	}

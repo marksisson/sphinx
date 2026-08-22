@@ -34,7 +34,7 @@ type Content struct {
 	Signature Blob
 }
 
-// ValidateContent validates the Phase 2 public Git layout and every managed
+// ValidateContent validates the public Git layout and every managed
 // entry directly from the approved commit's object database.
 func (r *Repository) ValidateContent(ctx context.Context) (*Content, error) {
 	entries, err := r.ListTree(ctx)

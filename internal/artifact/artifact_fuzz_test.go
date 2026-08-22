@@ -37,7 +37,7 @@ func FuzzDecode(f *testing.F) {
 }
 
 func FuzzSOPSMetadata(f *testing.F) {
-	identityBytes, err := os.ReadFile("../../testdata/phase4/test-identities.txt")
+	identityBytes, err := os.ReadFile("../../testdata/sops/test-identities.txt")
 	if err != nil {
 		f.Fatal(err)
 	}
@@ -47,7 +47,7 @@ func FuzzSOPSMetadata(f *testing.F) {
 		f.Fatal(err)
 	}
 	recipient := hybridage.Recipient(identity)
-	fixture, err := os.ReadFile("../../testdata/phase4/proclamation-only.sops.yaml")
+	fixture, err := os.ReadFile("../../testdata/sops/proclamation-only.sops.yaml")
 	if err != nil {
 		f.Fatal(err)
 	}

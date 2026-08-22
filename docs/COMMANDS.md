@@ -1,4 +1,4 @@
-# Initial command matrix
+# Command matrix
 
 All artifact/decree/proclamation mutations require an explicit caller-managed `path:WORKTREE`, a controlling terminal, and proclamation authorization. They never perform Git history or transport operations. Reveal is the only seeker-authorized operation.
 
@@ -9,7 +9,7 @@ All artifact/decree/proclamation mutations require an explicit caller-managed `p
 | `tomb status [NAME]` | project config/tomb | none | metadata only |
 | `tomb list` | project config | none | metadata only |
 | `tomb remove NAME` | project config | project config | confirmation |
-| `tomb validate [NAME\|path:WORKTREE]` | tomb | none | full when identities available, otherwise public validation |
+| `tomb validate [NAME\|path:WORKTREE]` | tomb | none | named lock: public signed-state validation; explicit path: proclamation-authorized full artifact validation |
 | `tomb recover path:WORKTREE --rollback` | transaction journal | exact affected worktree paths | proclamation, deterministic rollback |
 | `artifact create --tomb path:WORKTREE --schema SCHEMA CHAMBER` | schema | artifact, decree/signature | proclamation; proclamation-only recipient |
 | `artifact set-inscription --tomb path:WORKTREE --inscription NAME CHAMBER` | artifact/schema | artifact, decree/signature | proclamation; fresh data key |
@@ -17,7 +17,7 @@ All artifact/decree/proclamation mutations require an explicit caller-managed `p
 | `artifact delete --tomb path:WORKTREE CHAMBER` | artifact/decree | artifact, decree/signature | proclamation |
 | `artifact inspect --tomb TOMB CHAMBER` | readable ciphertext fields | none | no identity; conspicuous unverified-MAC warning |
 | `artifact reveal --tomb TOMB [--secret NAME] CHAMBER` | locked tomb, tailscaled, guardian | none | seeker decree; plaintext stdout only |
-| `artifact validate --tomb TOMB CHAMBER` | artifact/schema/decree | none | full with guardian, otherwise public |
+| `artifact validate --tomb TOMB CHAMBER` | artifact/schema/decree | none | full seeker/decree/guardian/recipient/MAC/schema validation; emits no plaintext |
 | `guardian create NAME [--provider PROVIDER]` | provider | provider | local generation; writable provider only |
 | `guardian show NAME [--provider PROVIDER]` | provider | none | no private key/recipient export |
 | `guardian list [--provider PROVIDER]` | provider | none | metadata only |

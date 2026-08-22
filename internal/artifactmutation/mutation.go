@@ -1,6 +1,6 @@
 // Package artifactmutation couples every artifact/schema post-image to newly
 // generated proclamation-signed exhaustive locks before any worktree path is
-// changed. Phase 5 supplies the concrete decree encoder and signature verifier.
+// changed. Tomb state supplies the concrete decree encoder and signature verifier.
 package artifactmutation
 
 import (

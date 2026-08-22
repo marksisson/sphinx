@@ -1,6 +1,6 @@
 # Architecture decision records
 
-These accepted ADRs freeze the Phase 0 security and format decisions for the CLI redesign. `REDESIGN.md` remains the complete normative specification; an ADR records why an implementation boundary exists and the evidence required to change it.
+These accepted ADRs freeze the initial security and format decisions for the CLI architecture. [`docs/ARCHITECTURE.md`](../ARCHITECTURE.md) remains the complete normative specification; an ADR records why an implementation boundary exists and the evidence required to change it.
 
 1. [Local policy threat model](0001-local-policy-threat-model.md)
 2. [Canonical tomb repository layout](0002-tomb-repository-layout.md)
@@ -11,4 +11,4 @@ These accepted ADRs freeze the Phase 0 security and format decisions for the CLI
 7. [Hybrid decree-signature suite](0007-hybrid-decree-signatures.md)
 8. [Decree trust bootstrap and rotation](0008-decree-trust-bootstrap.md)
 
-Changes to an accepted wire format, trust boundary, or pinned suite require a superseding ADR and the rotation/format-version process in `REDESIGN.md`.
+Changes to an accepted wire format, trust boundary, or pinned suite require a superseding ADR and the rotation/format-version process in [`docs/ARCHITECTURE.md`](../ARCHITECTURE.md).

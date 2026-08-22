@@ -17,7 +17,7 @@ import (
 	"go.yaml.in/yaml/v3"
 )
 
-func phase4Schema() schema.Definition {
+func sopsFixtureSchema() schema.Definition {
 	return schema.Definition{Version: 1, Name: "service", Secrets: []schema.Field{
 		{Name: "api_key", Type: "string", Required: true, Prompt: "API key"},
 		{Name: "replicas", Type: "integer", Required: true, Prompt: "Replicas"},
@@ -28,11 +28,11 @@ func phase4Schema() schema.Definition {
 	}}
 }
 
-func phase4Document() Document {
+func sopsFixtureDocument() Document {
 	return Document{Format: 1, Schema: "service/v1", Inscriptions: map[string]any{"environment": "production", "owner": "platform"}, Secrets: map[string]any{"api_key": "secret-one", "replicas": 3, "enabled": true}}
 }
 
-func phase4Engine() Engine {
+func deterministicSOPSEngine() Engine {
 	data := make([]byte, 32*16)
 	for block := 0; block < 16; block++ {
 		for index := 0; index < 32; index++ {
@@ -42,10 +42,10 @@ func phase4Engine() Engine {
 	return Engine{Random: bytes.NewReader(data), Now: func() time.Time { return time.Date(2026, 8, 22, 4, 5, 6, 0, time.UTC) }}
 }
 
-func TestPhase4FixtureChecksums(t *testing.T) {
-	checksums := map[string]string{"multi-guardian.sops.yaml": "612d4ab548aa9f7f66725df830c61396a50384b616a88ed3093fb082ad840a97", "plain.yaml": "35e4018bd3d39521dd26da1428eccc2f8bce5639d8081e4721173ce59dec910f", "proclamation-only.sops.yaml": "f90d0b09fd64c7184ab598f48daf6d07bfa736e1bc455dc36a66df272795b690", "schema.yaml": "37d3059f6df8561c229b15e09749ca6b876f6907635c8d9c99f9a0991609abb4", "test-identities.txt": "098fda7fce1e00f40a0e59f7a53d4be45c391427d1fcc31e701db3146aac2838"}
+func TestSOPSFixtureChecksums(t *testing.T) {
+	checksums := map[string]string{"multi-guardian.sops.yaml": "612d4ab548aa9f7f66725df830c61396a50384b616a88ed3093fb082ad840a97", "plain.yaml": "35e4018bd3d39521dd26da1428eccc2f8bce5639d8081e4721173ce59dec910f", "proclamation-only.sops.yaml": "f90d0b09fd64c7184ab598f48daf6d07bfa736e1bc455dc36a66df272795b690", "schema.yaml": "fd32233fc615a58c0b4e5c18690f47b405632df7d2c33d10a8fb1feb5619edda", "test-identities.txt": "098fda7fce1e00f40a0e59f7a53d4be45c391427d1fcc31e701db3146aac2838"}
 	for name, want := range checksums {
-		data, err := os.ReadFile("../../testdata/phase4/" + name)
+		data, err := os.ReadFile("../../testdata/sops/" + name)
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -56,8 +56,8 @@ func TestPhase4FixtureChecksums(t *testing.T) {
 	}
 }
 
-func TestPhase4MultiScalarFixtures(t *testing.T) {
-	schemaBytes, err := os.ReadFile("../../testdata/phase4/schema.yaml")
+func TestSOPSMultiScalarFixtures(t *testing.T) {
+	schemaBytes, err := os.ReadFile("../../testdata/sops/schema.yaml")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -65,7 +65,7 @@ func TestPhase4MultiScalarFixtures(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	identityBytes, err := os.ReadFile("../../testdata/phase4/test-identities.txt")
+	identityBytes, err := os.ReadFile("../../testdata/sops/test-identities.txt")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -83,7 +83,7 @@ func TestPhase4MultiScalarFixtures(t *testing.T) {
 		identities []*age.HybridIdentity
 		used       string
 	}{{"proclamation-only.sops.yaml", []*age.HybridIdentity{proclamation}, proclamation.Recipient().String()}, {"multi-guardian.sops.yaml", []*age.HybridIdentity{guardian}, guardian.Recipient().String()}} {
-		encrypted, err := os.ReadFile("../../testdata/phase4/" + fixture.name)
+		encrypted, err := os.ReadFile("../../testdata/sops/" + fixture.name)
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -98,11 +98,11 @@ func TestPhase4MultiScalarFixtures(t *testing.T) {
 }
 
 func TestPinnedExternalSOPSFixturePassesStrictEngine(t *testing.T) {
-	encrypted, err := os.ReadFile("../../testdata/phase0/artifact.sops.yaml")
+	encrypted, err := os.ReadFile("../../testdata/interoperability/artifact.sops.yaml")
 	if err != nil {
 		t.Fatal(err)
 	}
-	identityBytes, err := os.ReadFile("../../testdata/phase0/hybrid-identity.txt")
+	identityBytes, err := os.ReadFile("../../testdata/interoperability/hybrid-identity.txt")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -125,8 +125,8 @@ func TestCreateInspectDecryptAndRecipientFallback(t *testing.T) {
 	proclamation, _ := hybridage.Generate()
 	guardian, _ := hybridage.Generate()
 	wrong, _ := hybridage.Generate()
-	engine := phase4Engine()
-	encrypted, err := engine.Create(phase4Document(), phase4Schema(), proclamation.Recipient().String())
+	engine := deterministicSOPSEngine()
+	encrypted, err := engine.Create(sopsFixtureDocument(), sopsFixtureSchema(), proclamation.Recipient().String())
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -140,7 +140,7 @@ func TestCreateInspectDecryptAndRecipientFallback(t *testing.T) {
 	if inspection.Verified || inspection.WarningCode != UnverifiedInscriptionCode || !strings.Contains(inspection.Warning, "MUST NOT") || inspection.Inscriptions["environment"] != "production" || len(inspection.RecipientFingerprints) != 1 {
 		t.Fatalf("inspection = %#v", inspection)
 	}
-	document, used, err := engine.DecryptWithIdentities(encrypted, proclamation.Recipient().String(), []*age.HybridIdentity{proclamation}, phase4Schema())
+	document, used, err := engine.DecryptWithIdentities(encrypted, proclamation.Recipient().String(), []*age.HybridIdentity{proclamation}, sopsFixtureSchema())
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -148,53 +148,53 @@ func TestCreateInspectDecryptAndRecipientFallback(t *testing.T) {
 		t.Fatalf("decrypted = %#v via %q", document, used)
 	}
 
-	withGuardian, err := engine.AddRecipient(encrypted, proclamation, phase4Schema(), guardian.Recipient().String())
+	withGuardian, err := engine.AddRecipient(encrypted, proclamation, sopsFixtureSchema(), guardian.Recipient().String())
 	if err != nil {
 		t.Fatal(err)
 	}
 	assertAllCiphertextsChanged(t, encrypted, withGuardian)
 	assertDataKeyChanged(t, encrypted, withGuardian, proclamation)
-	document, used, err = engine.DecryptWithIdentities(withGuardian, proclamation.Recipient().String(), []*age.HybridIdentity{wrong, guardian}, phase4Schema())
+	document, used, err = engine.DecryptWithIdentities(withGuardian, proclamation.Recipient().String(), []*age.HybridIdentity{wrong, guardian}, sopsFixtureSchema())
 	if err != nil {
 		t.Fatal(err)
 	}
 	if used != guardian.Recipient().String() || document.Secrets["replicas"] != 3 {
 		t.Fatalf("fallback used %q: %#v", used, document)
 	}
-	withoutGuardian, err := engine.RemoveRecipient(withGuardian, proclamation, phase4Schema(), guardian.Recipient().String())
+	withoutGuardian, err := engine.RemoveRecipient(withGuardian, proclamation, sopsFixtureSchema(), guardian.Recipient().String())
 	if err != nil {
 		t.Fatal(err)
 	}
 	assertAllCiphertextsChanged(t, withGuardian, withoutGuardian)
 	assertDataKeyChanged(t, withGuardian, withoutGuardian, proclamation)
-	if _, _, err := engine.DecryptWithIdentities(withoutGuardian, proclamation.Recipient().String(), []*age.HybridIdentity{guardian}, phase4Schema()); err == nil {
+	if _, _, err := engine.DecryptWithIdentities(withoutGuardian, proclamation.Recipient().String(), []*age.HybridIdentity{guardian}, sopsFixtureSchema()); err == nil {
 		t.Fatal("removed guardian still decrypted artifact")
 	}
-	if _, err := engine.AddRecipient(withGuardian, proclamation, phase4Schema(), guardian.Recipient().String()); err == nil {
+	if _, err := engine.AddRecipient(withGuardian, proclamation, sopsFixtureSchema(), guardian.Recipient().String()); err == nil {
 		t.Fatal("duplicate guardian was accepted")
 	}
 }
 
 func TestInscriptionAndResealAlwaysRotateDataKeyAndPreserveSchema(t *testing.T) {
 	proclamation, _ := hybridage.Generate()
-	engine := phase4Engine()
-	created, err := engine.Create(phase4Document(), phase4Schema(), proclamation.Recipient().String())
+	engine := deterministicSOPSEngine()
+	created, err := engine.Create(sopsFixtureDocument(), sopsFixtureSchema(), proclamation.Recipient().String())
 	if err != nil {
 		t.Fatal(err)
 	}
-	inscribed, err := engine.SetInscription(created, proclamation, phase4Schema(), "environment", "staging")
+	inscribed, err := engine.SetInscription(created, proclamation, sopsFixtureSchema(), "environment", "staging")
 	if err != nil {
 		t.Fatal(err)
 	}
 	assertAllCiphertextsChanged(t, created, inscribed)
 	assertDataKeyChanged(t, created, inscribed, proclamation)
-	selected, err := engine.Reseal(inscribed, proclamation, phase4Schema(), "api_key", map[string]any{"api_key": "secret-two"})
+	selected, err := engine.Reseal(inscribed, proclamation, sopsFixtureSchema(), "api_key", map[string]any{"api_key": "secret-two"})
 	if err != nil {
 		t.Fatal(err)
 	}
 	assertAllCiphertextsChanged(t, inscribed, selected)
 	assertDataKeyChanged(t, inscribed, selected, proclamation)
-	document, _, err := engine.DecryptWithIdentities(selected, proclamation.Recipient().String(), []*age.HybridIdentity{proclamation}, phase4Schema())
+	document, _, err := engine.DecryptWithIdentities(selected, proclamation.Recipient().String(), []*age.HybridIdentity{proclamation}, sopsFixtureSchema())
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -202,13 +202,13 @@ func TestInscriptionAndResealAlwaysRotateDataKeyAndPreserveSchema(t *testing.T) 
 		t.Fatalf("selected reseal changed preserved values: %#v", document)
 	}
 	all := map[string]any{"api_key": "secret-three", "replicas": 7, "enabled": false}
-	fully, err := engine.Reseal(selected, proclamation, phase4Schema(), "", all)
+	fully, err := engine.Reseal(selected, proclamation, sopsFixtureSchema(), "", all)
 	if err != nil {
 		t.Fatal(err)
 	}
 	assertAllCiphertextsChanged(t, selected, fully)
 	assertDataKeyChanged(t, selected, fully, proclamation)
-	document, _, err = engine.DecryptWithIdentities(fully, proclamation.Recipient().String(), []*age.HybridIdentity{proclamation}, phase4Schema())
+	document, _, err = engine.DecryptWithIdentities(fully, proclamation.Recipient().String(), []*age.HybridIdentity{proclamation}, sopsFixtureSchema())
 	if err != nil || document.Secrets["replicas"] != 7 {
 		t.Fatalf("full reseal = %#v, %v", document, err)
 	}
@@ -217,8 +217,8 @@ func TestInscriptionAndResealAlwaysRotateDataKeyAndPreserveSchema(t *testing.T) 
 func TestRejectsUnsupportedMetadataPlaintextSecretsWrongProclamationAndMACTampering(t *testing.T) {
 	proclamation, _ := hybridage.Generate()
 	other, _ := hybridage.Generate()
-	engine := phase4Engine()
-	encrypted, err := engine.Create(phase4Document(), phase4Schema(), proclamation.Recipient().String())
+	engine := deterministicSOPSEngine()
+	encrypted, err := engine.Create(sopsFixtureDocument(), sopsFixtureSchema(), proclamation.Recipient().String())
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -231,7 +231,7 @@ func TestRejectsUnsupportedMetadataPlaintextSecretsWrongProclamationAndMACTamper
 	}
 	for name, altered := range cases {
 		t.Run(name, func(t *testing.T) {
-			if _, _, err := engine.DecryptWithIdentities(altered, proclamation.Recipient().String(), []*age.HybridIdentity{proclamation}, phase4Schema()); err == nil {
+			if _, _, err := engine.DecryptWithIdentities(altered, proclamation.Recipient().String(), []*age.HybridIdentity{proclamation}, sopsFixtureSchema()); err == nil {
 				t.Fatal("altered artifact accepted")
 			}
 		})
@@ -239,7 +239,7 @@ func TestRejectsUnsupportedMetadataPlaintextSecretsWrongProclamationAndMACTamper
 	if _, err := engine.Inspect(encrypted, other.Recipient().String()); err == nil {
 		t.Fatal("artifact accepted under the wrong proclamation")
 	}
-	guardianAuthored, err := engine.Create(phase4Document(), phase4Schema(), other.Recipient().String())
+	guardianAuthored, err := engine.Create(sopsFixtureDocument(), sopsFixtureSchema(), other.Recipient().String())
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -250,11 +250,11 @@ func TestRejectsUnsupportedMetadataPlaintextSecretsWrongProclamationAndMACTamper
 
 func TestCreateRejectsNestedNullAndSequenceValues(t *testing.T) {
 	proclamation, _ := hybridage.Generate()
-	engine := phase4Engine()
+	engine := deterministicSOPSEngine()
 	for name, value := range map[string]any{"nested": map[string]any{"x": "y"}, "null": nil, "sequence": []any{"x"}} {
-		document := phase4Document()
+		document := sopsFixtureDocument()
 		document.Secrets["api_key"] = value
-		if _, err := engine.Create(document, phase4Schema(), proclamation.Recipient().String()); err == nil {
+		if _, err := engine.Create(document, sopsFixtureSchema(), proclamation.Recipient().String()); err == nil {
 			t.Errorf("%s value accepted", name)
 		}
 	}

@@ -163,16 +163,16 @@ A reference may have one `?ref=` or `?rev=` selector, never both. References ide
 
 Before any command body executes, Sphinx sets and verifies the macOS soft and hard core-file size limits as zero. It fails closed if this process control cannot be established. Secrets and proclamation text never enter command arguments; decrypted output still inherits the security of the caller-selected stdout destination.
 
-- [Phase 8 threat-model review](docs/security/THREAT_MODEL_REVIEW.md)
+- [Threat-model review](docs/security/THREAT_MODEL.md)
 - [Support and interoperability matrix](docs/release/SUPPORT_MATRIX.md)
-- [Release procedure](docs/release/RELEASE.md)
+- [Release procedure](docs/release/PROCESS.md)
 - [Transaction recovery](docs/operations/RECOVERY.md)
 - [Guardian compromise](docs/operations/GUARDIAN_COMPROMISE.md)
 - [Proclamation rotation](docs/operations/PROCLAMATION_ROTATION.md)
 - [Rollback guidance](docs/operations/ROLLBACK.md)
 
-Published v0.1.0 checksums, SBOM, and notarization evidence are indexed in [`artifacts/releases/v0.1.0/RELEASE.md`](artifacts/releases/v0.1.0/RELEASE.md).
+Published v0.1.0 checksums, SBOM, and notarization evidence are indexed in [`artifacts/releases/v0.1.0/ATTESTATION.md`](artifacts/releases/v0.1.0/ATTESTATION.md).
 
 The production release procedure in `scripts/build-release-macos.sh` requires a Developer ID Application identity and an Apple notarytool Keychain profile. It emits the notarized and stapled disk image, hardened-runtime signing evidence, Gatekeeper result, SHA-256 checksums, and CycloneDX SBOM. `scripts/verify-release-candidate.sh` performs a credential-free ad-hoc candidate build check but does not represent a distributable notarized release.
 
-See [docs/PRD.md](docs/PRD.md), [docs/TERMINOLOGY.md](docs/TERMINOLOGY.md), the [schema guide](docs/SCHEMAS.md), and the [command matrix](docs/COMMANDS.md).
+See [docs/PRD.md](docs/PRD.md), [docs/TERMINOLOGY.md](docs/TERMINOLOGY.md), the [schema guide](docs/SCHEMAS.md), [configuration and format examples](docs/examples/README.md), and the [command matrix](docs/COMMANDS.md).

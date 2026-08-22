@@ -1,54 +1,36 @@
-# Sphinx CLI Redesign Specification and Transformation Plan
+# Sphinx CLI Architecture and Security Specification
 
-**Status:** Complete. Phases 0–8 completed on 2026-08-22. The replacement CLI, initial formats, threat review, process hardening, parser fuzzing, operational publications, and release gates are complete. The `darwin/arm64` v0.1.0 artifact from source commit `6f60cbb6391025c5aec8bf262d2dcf85b1a5d6bf` has a hardened-runtime Developer ID signature and secure timestamp; Apple notarization submission `8d1637b5-2382-401f-8a5d-430fd936855e` was accepted; its ticket is stapled and validated on the disk image; Gatekeeper reports `Notarized Developer ID`; and checksums plus a CycloneDX SBOM are published under `artifacts/releases/v0.1.0/`.
+**Status:** Normative for v0.1.0. The `darwin/arm64` artifact from source commit `6f60cbb6391025c5aec8bf262d2dcf85b1a5d6bf` has a hardened-runtime Developer ID signature and secure timestamp. Apple notarization submission `8d1637b5-2382-401f-8a5d-430fd936855e` was accepted, its ticket is stapled and validated on the disk image, Gatekeeper reports `Notarized Developer ID`, and checksums plus a CycloneDX SBOM are published under `artifacts/releases/v0.1.0/`.
 
 ## 1. Purpose
 
-Sphinx will be redesigned as a **local command-line tool only**. It will manage Git-backed tombs, schema-conforming SOPS artifacts, age identities, and Tailscale-based access policy without an HTTP server, daemon, listener, LaunchAgent, or client/server protocol.
+Sphinx is a **local command-line tool only**. It manages Git-backed tombs, schema-conforming SOPS artifacts, age identities, and Tailscale-based access policy without an HTTP server, daemon, listener, LaunchAgent, or client/server protocol.
 
-This document is the specification and implementation plan for systematically replacing the current unused MVP. Normative words such as **MUST**, **MUST NOT**, **SHOULD**, and **MAY** are intentional.
+This document specifies the implemented architecture and security boundaries. Normative words such as **MUST**, **MUST NOT**, **SHOULD**, and **MAY** are intentional.
 
 The initial supported platform is macOS on Apple Silicon (`darwin/arm64`) only. Initial implementation, packaging, CI, credential-provider behavior, and release acceptance target that architecture only. Linux and Windows are not initial release targets. The documented Linux provider restrictions define future behavior if Linux support is added; they do not require a Linux binary in the initial release.
 
 ## 2. Canonical terminology
 
-| New term | Meaning | Replaces/removes |
-|---|---|---|
-| **Sphinx** | The `sphinx` CLI | Client, daemon, service |
-| **Tomb** | A Git repository identified by a simple repository reference such as `github:acme/secrets` | Existing tomb, but no plain non-Git directory and no served runtime |
-| **Tomb reference** | A repository slug with an optional `ref` or immutable `rev`; the lock records the resolved commit | General-purpose locator |
-| **Chamber** | A validated repository-relative path containing exactly one `artifact.yaml` | Ad hoc artifact file locator |
-| **Artifact** | A schema-conforming SOPS-encrypted YAML document stored as `CHAMBER/artifact.yaml` | Relic |
-| **Secret** | An encrypted value in an artifact | Essence and facet |
-| **Inscription** | An unencrypted value in an artifact, authenticated by the SOPS MAC | Existing inscription |
-| **Schema** | A tomb-local YAML definition below `.tomb/schemas/`, referenced by `name/vN` | External schema locator |
-| **SOPS identity** | An age identity accepted for SOPS data-key decryption | Generic private key terminology at the product layer |
-| **Guardian** | An age SOPS identity used to reveal artifacts | Existing single Keychain-backed identity |
-| **Proclamation** | A high-entropy passphrase deterministically deriving a hybrid-PQ age identity and a separate hybrid decree-signing identity | Recovery key/incantation/recovery passphrase |
-| **Seeker** | The current local Tailscale identity identified by a login or device tag and evaluated by a decree | Explorer, envoy, petitioner |
-| **Decree** | The tomb's declarative authorization policy | Existing external plaintext decree |
+[`TERMINOLOGY.md`](TERMINOLOGY.md) defines the normative product, format, command, and cryptographic vocabulary used by this specification.
 
-The following old product terms MUST be removed from CLI help, config, persisted formats, docs, tests, and user-facing errors: `relic`, `essence`, `facet`, `recovery key`, `recovery incantation`, `explorer`, `envoy`, `petition`, `petitioner`, `riddle`, `temple`, `protect` (server sense), and `daemon`. `Seeker` is retained for the current local Tailscale identity, and `Chamber` is retained as the path-oriented container for one artifact.
-
-Low-level cryptographic terms such as data key, recipient, identity, KEM, MAC, ciphertext, and SOPS metadata remain conventional.
-
-## 3. Non-negotiable target properties
+## 3. Non-negotiable properties
 
 1. Sphinx MUST run to completion as a CLI process. It MUST NOT listen on a socket or expose an HTTP API.
-2. Every asymmetric age identity and recipient created or accepted by Sphinx MUST use the selected **hybrid classical + post-quantum suite**. Classical-only X25519 identities MUST be rejected. No compatibility reader is provided.
+2. Every asymmetric age identity and recipient created or accepted by Sphinx MUST use the selected **hybrid classical + post-quantum suite**. Classical-only X25519 identities MUST be rejected.
 3. Every artifact MUST wrap its SOPS data/session key for exactly one proclamation recipient and zero or more guardian recipients. All recipients are independent hybrid-PQ recipients; any one can unwrap the data key. Threshold groups and classical-only recipients are prohibited.
 4. Artifact creation/deletion, any secret or inscription update, recipient change, schema-file change, decree change, and reseal MUST require a proclamation; artifact schema-reference mutation is unsupported after creation.
 5. Guardians MAY reveal artifacts but MUST NOT be sufficient through the Sphinx CLI to create or modify them.
 6. A newly written artifact MUST conform to its referenced schema before it is committed to disk.
 7. A revealed artifact MUST pass tomb-reference validation, chamber-path validation, lock validation, SOPS MAC verification, decryption, and schema validation before any value is emitted.
-8. Sphinx MUST obtain the current seeker from the local Tailscale daemon and apply the tomb's decree with default-deny behavior.
+8. Sphinx MUST obtain the current seeker through the local tailscaled LocalAPI and apply the tomb's decree with default-deny behavior.
 9. A remote or mutable tomb reference MUST resolve through an explicit lock. Normal reveal and mutation operations MUST NOT silently advance a mutable `ref`.
 10. Sensitive prompts MUST use a controlling terminal with echo disabled. Proclamations and decrypted secrets MUST NOT be accepted through command arguments or environment variables.
-11. Writes MUST use private temporary files, `fsync`, atomic replacement, and path/symlink escape checks.
-12. Sphinx MUST NOT create a persistent local audit log, chronicle, history database, or audit configuration.
+11. Encrypted and metadata writes MUST use private staging files, `fsync`, atomic replacement, and path/symlink escape checks. Decrypted plaintext MUST NOT be staged in a file.
+12. Sphinx MUST NOT create a persistent local event or audit store.
 13. Initial artifact authoring is interactive-only on macOS and MUST use the controlling terminal for proclamations and secret/inscription input.
 
-## 4. Target architecture
+## 4. Architecture
 
 ```text
 sphinx CLI
@@ -73,9 +55,7 @@ There is no privileged intermediary. Every command operates locally on a locked 
 
 ### CLI reveal coordinator
 
-The existing `runProtect` function and `tomb protect` command are discarded in full. `runProtect` is server bootstrap code—not a reusable application service—and MUST NOT be decomposed into a background or local server. Only independently useful primitives such as safe Git materialization may survive behind new CLI-oriented interfaces.
-
-A new in-process reveal coordinator performs one synchronous operation using four required inputs:
+The in-process reveal coordinator performs one synchronous operation using four required inputs:
 
 1. the current local Tailscale identity (**seeker**);
 2. the configured and locked Git repository (**tomb**);
@@ -656,9 +636,8 @@ Rules:
 - `proclamation rotate` requires the current proclamation, generates and confirms a new proclamation, re-encrypts every artifact, replaces the tomb public bundle, signs the new decree, appends a cross-signed transition record, and commits the complete worktree mutation through the journaled transaction protocol.
 - Stdout is the only decrypted-output channel in the initial interface; diagnostics and warnings go only to stderr. Sphinx provides no clipboard integration, named/arbitrary file-descriptor output, plaintext temporary/output files, or `exec` environment/stdin mode. Callers may explicitly pipe or redirect stdout using normal shell facilities and thereby assume the resulting leak/lifecycle risk.
 - If decrypted stdout is a terminal, Sphinx emits a conspicuous stderr warning and requires controlling-terminal confirmation before emitting any secret. Piped stdout requires no extra confirmation. Secret values MUST NOT appear in diagnostics, errors, logs, terminal titles, or progress output.
-- No command named `tomb protect` remains because there is no server to run.
 - Artifact/decree/guardian/proclamation authoring requires a controlling terminal. Initial authoring rejects piped stdin, absent TTYs, command-line secret values, secret/proclamation environment variables, input files, and caller-supplied file descriptors. Reveal output may still be piped by the caller.
-- Sphinx emits ordinary ephemeral diagnostics to stderr but creates no audit/chronicle files, event database, persistent history, audit command, or audit configuration.
+- Sphinx emits ordinary ephemeral diagnostics to stderr but creates no persistent event files, database, history, command, or configuration.
 
 Sphinx only edits and validates caller-managed worktrees. Git initialization, branches, staging, commits, commit/tag signing, pushes, pull requests, merges, resets, and restores remain entirely caller-managed.
 
@@ -783,218 +762,9 @@ Project configuration is repository-visible trust and reproducibility data and S
 
 Cache materialization follows XDG at `$XDG_CACHE_HOME/sphinx` or `$HOME/.cache/sphinx`. The cache root is mode `0700`, contains Git objects/ciphertext and no private identities or plaintext, keys immutable entries by canonical repository identity plus commit, and uses inter-process locks and atomic promotion from candidate storage. Cache corruption causes eviction/refetch or fail-closed error, never acceptance of bytes that do not match the locked commit.
 
-## 12. Existing codebase impact
+## 12. Acceptance criteria
 
-The current graph shows the redesign crosses every major subsystem: the CLI and relic authoring code are tightly coupled to a single X25519 guardian and passphrase recovery envelope; the server couples Tailscale `WhoIs`, policy, audit, and decryption; tomb settings couple locks to daemon listener/runtime paths. This coupling is historical context only and is not a reason to preserve the server orchestration.
-
-### Remove
-
-- `runProtect` in its entirety; do not refactor or retain it as a coordinator.
-- `internal/server/` and all HTTP handlers/tests.
-- `cmd/sphinx/tomb_protect.go` and `tomb protect`.
-- `internal/audit/` in full; no replacement local audit or chronicle subsystem is required.
-- listener, server URL, request timeout, chronicle, audit, and LaunchAgent configuration.
-- `launchd/` examples.
-- online `relic reveal` and all client/server request/response code.
-- the current bespoke recovery envelopes outside standard/approved SOPS recipient metadata.
-
-### Rename and reshape
-
-- `internal/relic` → `internal/artifact`.
-- `cmd/sphinx/relic.go` → artifact commands.
-- schema `Essence`/`Inscription` groups → plural `Secrets`/`Inscriptions`; `ValidateDocument(essence, inscription)` → artifact-oriented validation.
-- CLI `--facet` → `--secret`.
-- explorer/envoy/principal product language → seeker.
-- recovery incantation APIs → proclamation APIs after its cryptographic construction is settled.
-- the current settings model → the initial two-layer configuration: optional XDG global tomb aliases plus Git-root `.sphinx/config.yaml` project locks/settings and guardian name/provider selections; use the local `default` alias rather than `default_tomb`.
-- docs, examples, test fixtures, package comments, errors, completion, flake metadata, and README terminology.
-
-### Replace
-
-- `internal/secret/encryption.go` bespoke X25519 + external recovery envelope with a narrow SOPS artifact engine using the selected hybrid-PQ age implementation plus a separate hybrid decree-signature engine.
-- current single-public-key tomb binding with recipient-set validation and guardian fingerprints.
-- external decree path with one readable, proclamation-signed in-tomb decree, detached signature, and pinned proclamation verification key.
-- remote-peer Tailscale `WhoIs` with current-local-seeker resolution.
-- server orchestration with a synchronous CLI reveal coordinator that combines seeker, locked tomb, decree, configured guardians, artifact decryption, and schema validation.
-- schema name/version lookup with mandatory tomb-local `.tomb/schemas/NAME/vN.yaml` resolution at the tomb's locked revision; remove external schema resolution.
-
-### Preserve and adapt
-
-- strict repository-reference parsing and Git branch/path validation.
-- separate candidate and immutable Git caches.
-- mode-restricted atomic writes.
-- strict YAML schema validation and terminal prompting.
-- shell completion, updated for tomb names, chambers, schemas, guardians, and secret names.
-- fail-closed errors without Sphinx-defined artifact, schema, decree, secret, or repository size caps.
-
-## 13. Systematic implementation plan
-
-Each phase ends with passing unit tests and updated documentation. Security behavior is implemented through typed APIs rather than scattered command checks.
-
-### Phase 0 — Resolve design gates and write ADRs (complete)
-
-1. Answer §14.
-2. Write ADRs for the hybrid age suite/encoding, hybrid decree-signature suite, proclamation credential bundle, decree signature and trust bootstrap, local-policy threat model, tomb-reference grammar, chamber rules, and repository layout.
-3. Add executable format fixtures and external interoperability tests before replacing crypto.
-4. Freeze a terminology mapping and command matrix.
-
-**Exit:** no unresolved blocker marked P0; crypto test vectors decrypt with both Sphinx and the approved age/SOPS tooling.
-
-### Phase 1 — Terminology-safe domain types (complete)
-
-1. Introduce `artifact`, `chamber`, `proclamation`, `guardian`, `seeker`, and tomb-reference types without changing behavior.
-2. Move schema fields from essence/facet to secret terminology.
-3. Centralize path, strict YAML, and atomic-write invariants; do not introduce content or repository size caps.
-4. Add repository-wide tests for strict initial-format decoding and rejection of unknown fields.
-
-**Exit:** new domain packages compile independently; no network changes yet.
-
-### Phase 2 — Tomb references and locked resources (complete)
-
-1. Narrow `internal/locator` to tomb references supporting only mutually exclusive `ref` or `rev`; remove `dir` and `file` selectors from user-facing slugs.
-2. Introduce strict chamber-path validation and fixed `artifact.yaml` resolution.
-3. Require Git roots for path references.
-4. Implement optional read-only XDG global tomb-alias discovery and Git worktree-root project discovery.
-5. Implement project-managed tomb aliases, global-alias enrollment, basename defaulting, canonical-reference lookup, the local `default` behavior, and the initial project lock format.
-6. Implement content validation, immutable tomb materialization, inter-process project-config locking, crash-safe atomic updates, and all-or-nothing multi-tomb lock updates.
-7. Implement caller-managed writable-worktree detection and mutation guards; prohibit mutation of caches and remote references and prohibit Git stage/commit/push side effects.
-8. Add adversarial tests for project-root confusion, nested worktrees, dirty target files, in-progress Git operations, cache mutation attempts, alias/reference ambiguity, duplicate references, config races, chamber traversal, symlinks, submodules, Git LFS/filter/encoding attributes, exact Git-blob hashing, exact-case preservation, non-rejection of case-colliding Git chambers, mutable/non-descendant refs, cache races, and TOCTOU.
-
-**Exit:** a tomb reference plus chamber resolves deterministically to `CHAMBER/artifact.yaml` at an approved commit.
-
-### Phase 3 — Hybrid-PQ identity layer (complete)
-
-1. Integrate native `age.HybridRecipient`/`age.HybridIdentity` from filippo.io/age v1.3.1 with the native hybrid-aware SOPS age master key in SOPS v3.12.1; reject all plugin and non-hybrid encodings.
-2. Implement credential-provider-authoritative guardian storage for macOS with no filesystem registry: Apple iCloud/login Keychain create/get/list/delete and synchronization behavior, plus the read-only fixed-`SPHINX_GUARDIAN` environment provider for macOS CI. Include local-only generation on writable providers and recipient fingerprints; do not implement recipient sharing/import/export. Do not make Linux build/release support an initial milestone.
-3. Implement the fixed `argon2id-v1` profile, 32-byte per-tomb salts, ten-word unbiased CSPRNG proclamation generation from the checksum-pinned 7,776-word list, controlling-terminal confirmation, three-attempt limit, and deterministic domain-separated derivation.
-4. Implement the pinned Go Ed25519 + CIRCL v1.6.1 ML-DSA-65 hybrid signature frame, raw/base64url encodings, public-bundle fingerprints, and both-required verification.
-5. Reject classical-only, malformed, mixed-suite, fallback, and unsupported identities/signatures.
-6. Add known-answer, FIPS/interoperability, corruption, wrong-component, framing, and deterministic-signature tests.
-
-**Exit:** all generated and accepted asymmetric identities satisfy the hybrid suite; private material never reaches argv or files unintentionally, and environment exposure occurs only through the explicit fixed-variable `environment` provider.
-
-### Phase 4 — SOPS artifact engine (complete)
-
-1. Implement the top-level named-scalar artifact plaintext model and encryption selector.
-2. Implement proclamation-only create, selected-inscription update, full/selected-secret reseal, delete, decrypt/validate, unauthenticated inscription inspection with warnings, add-recipient, and remove-recipient operations.
-3. Enforce proclamation-only mutation by coupling every artifact/schema write to regenerated proclamation-signed exhaustive artifact/schema locks.
-4. Rotate SOPS data keys on every inscription update, full or selected-secret reseal, and every guardian add/remove; scoped guardian operations fully re-encrypt all selected artifacts with one fresh independent data key per artifact.
-5. Resolve and validate schemas before write and after decrypt.
-6. Implement journaled fail-closed multi-file artifact/decree/signature transactions, pre/post-image validation, automatic error rollback, crash detection, and explicit path-scoped recovery without Git reset/index/commit operations.
-7. Add multi-secret/multi-inscription scalar fixtures, nested/null/sequence rejection, create/delete/inscription-update transactions, full and selected-secret reseal tests with mandatory data-key rotation, unauthenticated inscription warning tests, proclamation-only and multi-guardian recipient fixtures, exact-one-proclamation validation, independent-recipient fallback tests, threshold/duplicate-recipient rejection, scoped guardian add/remove full-re-encryption and transaction-rollback tests, valid guardian-authored-but-unlocked artifact fixtures, digest mismatch tests, and MAC-tampering tests.
-
-**Exit:** initial-format artifacts interoperate with the pinned tooling and contain no unsupported recipient or plaintext secret.
-
-### Phase 5 — Decree and seeker authorization (complete)
-
-1. Define the strict allow-only reveal decree model, login-or-tag identity matching, chamber-glob semantics, exhaustive artifact/schema lock lists, and committed-Git-blob digest rules.
-2. Implement detached decree signing and verification, artifact digest verification, tomb-ID domain separation, externally pinned proclamation-key fingerprints, append-only cross-signed transition chains, monotonic signed decree generations, all-artifact proclamation rotation, descendant-only lock advancement, and atomic commit/fingerprint/generation updates.
-3. Implement current Tailscale seeker resolution.
-4. Implement default-deny authorization and deterministic guardian intersection/selection from tomb configuration and artifact recipient metadata.
-5. Implement the synchronous CLI reveal coordinator; do not reuse `runProtect` or any HTTP abstraction.
-6. Add tests for missing Tailscale, login-only seekers, tag-only seekers without a user profile, login-or-tag semantics, identity responses with neither, no-match default deny, rejection of deny/action fields, malformed decrees, stale locks, MAC/signature tampering, zero guardians, no configured recipient match, independent guardian fallback order, unauthorized guardian use, complete proclamation rotation, multi-rotation chain traversal, missing/reordered/singly-signed transitions, non-descendant updates, old-generation replay, same-generation signed-state substitution, and crash rollback at every rotation install step.
-
-**Exit:** reveal fails closed unless the tomb lock, chamber path, decree integrity, seeker policy, guardian recipient, SOPS MAC, and schema all pass.
-
-### Phase 6 — CLI replacement (complete)
-
-1. Add final tomb, artifact, guardian, proclamation-rotation, and decree command trees.
-2. Remove server flags, online reveal, and `tomb protect`.
-3. Implement the fixed BSD `sysexits` mapping and version-1 single-object JSON envelopes for every command except completion; enforce stdout-only decrypted output, terminal confirmation, stderr secret exclusion, and absence of clipboard/file/FD/exec output modes.
-4. Add black-box CLI tests using temporary Git repositories and a fake Tailscale LocalAPI.
-
-**Exit:** no command starts a listener or depends on a Sphinx server.
-
-### Phase 7 — Remove superseded implementation and documentation (complete)
-
-1. Delete current relic formats and fixtures rather than building compatibility readers or migration commands.
-2. Remove `internal/relic`, current recovery wrappers, server, obsolete policy glue, LaunchAgent files, and unused dependencies.
-3. Rewrite README, PRD, schema guide, terminology, examples, Nix metadata, and fixtures for the new initial release; the flake/release matrix exposes only `aarch64-darwin`.
-4. Search case-insensitively for every retired term and remove it except where needed to describe deleted code during implementation.
-5. Run `go mod tidy`, `gofmt`, tests, race tests, fuzzers, static analysis, and `nix flake check` on supported systems.
-
-**Exit:** only the new CLI-only design and initial formats remain; no compatibility or data-migration path exists.
-
-### Phase 8 — Security review and release (complete)
-
-1. Perform a threat-model review focused on local bypass, passphrase entropy, pinned dependency integrity, Git lock integrity, recipient rotation, plaintext leakage, and rollback.
-2. Fuzz tomb-reference, chamber-path, YAML, SOPS metadata, schema, and decree parsers, including anchors, aliases, tags, duplicate keys, multi-document input, and merge keys.
-3. Verify no secrets enter logs, errors, shell history, completion, process listings, or temp files; sensitive commands set the macOS core-size limit to zero before loading private/plaintext material and fail closed if that control cannot be established.
-4. Build, harden, code-sign, notarize, and test the macOS Apple Silicon (`darwin/arm64`) release artifact; publish checksums, an SBOM, the interoperability/support matrix, recovery procedure, guardian compromise procedure, proclamation rotation procedure, and rollback guidance.
-
-## 14. Questions requiring owner decisions (“grill list”)
-
-### P0 — Cryptography and enforceability
-
-1. **Resolved:** age uses native ML-KEM-768 + X25519 from `filippo.io/age` v1.3.1 through SOPS v3.12.1. Decree signatures use Go Ed25519 plus FIPS 204 ML-DSA-65 from CIRCL v1.6.1 with separate raw/base64url components and the pinned binary signature frame. Both components are required; Sphinx executes no crypto plugin.
-2. **Resolved:** the securely prompted proclamation passphrase deterministically derives domain-separated X25519 + ML-KEM-768 age key material and Ed25519 + ML-DSA-65 signing key material using the tomb's versioned Argon2id parameters and salt.
-3. **Resolved:** decrees are readable plaintext, not SOPS documents. They use detached proclamation signatures verified with a public key stored in the tomb and a fingerprint pinned in the trusted lock/configuration.
-4. **Resolved:** decree enforcement is an advisory CLI policy. A guardian holder can bypass Sphinx with SOPS/age; credential-provider controls protect local keys, while signed decree artifact/schema locks ensure Sphinx rejects unauthorized tomb-content modifications.
-5. **Resolved:** artifact recipients are independent logical-OR recipients. Any one proclamation or guardian identity can unwrap the SOPS data key; threshold groups and Shamir configuration are prohibited.
-6. **Resolved:** every artifact contains exactly one proclamation recipient plus zero or more guardian recipients. Multiple proclamation recipients are prohibited.
-7. **Resolved:** existing X25519 artifacts and current persisted formats are disposable. No compatibility reader or migration command will be implemented.
-8. **Resolved:** the proclamation-signed decree contains an exhaustive list of chamber/artifact SHA-256 locks. A guardian can produce a valid SOPS document outside Sphinx, but Sphinx rejects it unless the proclamation has signed its exact committed blob digest.
-
-### P0 — Identity and policy
-
-9. **Resolved:** a seeker is identified for decree matching by a Tailscale login or device tag. Either is sufficient; node ID/name are diagnostic metadata rather than selectors.
-10. **Resolved:** Tailscale login and device-tag identity matches are OR conditions.
-11. **Resolved:** every reveal requires a live, authenticated tailscaled identity check and has no offline mode. Artifact create, inscription update, reseal, delete, guardian mutation, schema/decree signing, and proclamation rotation are administrative proclamation-authorized operations rather than seeker-authorized reveals.
-12. **Resolved:** decrees are allow-only and contain no explicit deny rules. No matching allow rule means deny.
-13. **Resolved:** decrees authorize only reveal. Administrative and validation operations are not decree actions.
-14. **Resolved:** decree artifact patterns use the fixed anchored, case-sensitive chamber glob grammar and match canonical chamber paths only.
-15. **Resolved:** guardian selection intersects the tomb's ordered configured guardians with artifact recipients and tries them in configuration order; decrees authorize seeker-to-artifact access and do not name guardians.
-
-### P0 — Resource and locking model
-
-16. **Resolved:** project config locks tombs to Git commits, while the proclamation-signed decree exhaustively locks every artifact by chamber and every schema by `name/vN` plus SHA-256. There are no separate lock files.
-17. **Resolved:** schemas are always tomb-local below `.tomb/schemas/`; external schemas are unsupported.
-18. **Resolved:** `name/vN` is the complete artifact schema reference and resolves to `.tomb/schemas/name/vN.yaml`.
-19. **Resolved:** user-facing tomb references identify repositories with an optional mutually exclusive `ref` or `rev`; a separate chamber resolves to fixed `CHAMBER/artifact.yaml`. `dir` and `file` selectors are removed.
-20. **Resolved:** chamber paths are exact, case-sensitive Git paths. Sphinx does not case-fold and does not reject case-colliding chambers during tomb validation; caller-managed case-insensitive worktrees may report their own representability limitations.
-21. **Resolved:** mutations require an explicit local `path:` tomb worktree and never edit immutable caches or advance consuming-project locks. After the caller commits/pushes the tomb, `sphinx tomb update` separately advances a consuming project's lock.
-22. **Resolved:** there is no `tomb create` command. The caller initializes the Git repository and schema files; `decree init` creates only the initial cryptographic tomb metadata/default-deny decree, while `tomb add` enrolls an existing committed tomb.
-23. **Resolved:** Sphinx only modifies and validates caller-managed worktrees. It never initializes, stages, commits, signs Git commits/tags, pushes, creates branches/PRs, or merges.
-24. **Resolved:** tomb metadata uses `.tomb/` with fixed `tomb.yaml`, `decree.yaml`, `decree.yaml.sig`, `rotations/.keep` plus sequence records, and `schemas/` locations. `.sphinx/` is used only for consuming-project configuration.
-
-### P1 — Artifact and schema behavior
-
-25. **Resolved:** every artifact inherently uses plural `secrets` and `inscriptions` mappings; schemas define their fields but cannot rename or replace the containers.
-26. **Resolved:** secrets are top-level named scalars only. Supported types are string (including multiline), integer, boolean, and string enum; nested objects, arrays, nulls, and binary/tagged values are forbidden.
-27. **Resolved:** inscriptions are also top-level named scalars and cannot contain nested data. Inscription mutation requires the proclamation and an updated signed artifact digest.
-28. **Resolved:** reseal with no selector replaces all secrets; `--secret NAME` replaces one selected secret. Every reseal always rotates the SOPS data key.
-29. **Resolved for the initial release:** there is no artifact schema-migration command. Schemas use explicit versions, and pre-release data may be recreated.
-30. **Resolved:** `artifact reveal` outputs all secrets by default; `--secret NAME` limits output to one selected secret.
-31. **Resolved:** `artifact inspect` displays inscriptions without proclamation or guardian access and emits a conspicuous warning that they have not been SOPS-MAC verified.
-32. **Resolved:** Sphinx defines no maximum sizes for artifacts, schemas, decrees, individual secrets, or Git repositories.
-33. **Resolved:** YAML anchors, aliases, custom tags, duplicate keys, multiple documents, and merge keys are forbidden.
-
-### P1 — Guardian and proclamation lifecycle
-
-34. **Resolved:** `guardian` is the only supported identity term in commands, configuration, and documentation.
-35. **Resolved:** macOS defaults to `apple-icloud-keychain`, with explicit `apple-login-keychain` available. Linux has no persistent or platform-default secure credential provider; it may use only the explicitly configured read-only `environment` provider.
-36. **Resolved:** guardians are generated locally; Sphinx provides no recipient sharing/import/export or private backup files. Synchronization/recovery is delegated to the selected credential provider and is not represented as guaranteed archival backup.
-37. **Resolved:** users select a guardian by name and optional provider. The provider record binds that name to its identity, suite, fingerprint, and hybrid public recipient. Artifacts persist the recipient, while comparisons and diagnostics use the fingerprint.
-38. **Resolved:** adding or removing a guardian always generates a fresh independent SOPS data key and fully re-encrypts every artifact in the selected scope. The scoped multi-artifact and decree update is atomic.
-39. **Resolved:** each tomb has one independently generated proclamation and per-tomb salt. Entering identical proclamation text against another tomb would still derive different keys; multiple proclamation recipients or per-administrator proclamations are unsupported.
-40. **Resolved:** `argon2id-v1` uses Argon2id v0x13, 256 MiB, three iterations, four lanes, a 32-byte salt, and a 32-byte output. New/rotated proclamations are Sphinx-generated ten-word phrases from a pinned 7,776-word list (about 129 bits), with no caller-chosen password option. Commands allow three prompt attempts; no persistent rate limit is claimed against offline guessing.
-41. **Resolved:** proclamation rotation cross-signs an append-only trust transition with old and new proclamations and atomically re-encrypts every artifact, decree, signature, and manifest before a consuming lock advances. Generic suite rotation is not in the initial release; a future bridge release must support an explicit all-artifact old-to-new transition with cross-signatures and no mixed-suite reveal state.
-
-### P1 — Operations
-
-42. **Resolved:** no local audit log or chronicle is required. Sphinx persists no event history or audit configuration.
-43. **Resolved:** non-interactive artifact authoring is not required initially. Authoring requires a controlling terminal and accepts no secret/proclamation input through stdin, argv, environment, files, or caller-provided file descriptors.
-44. **Resolved:** decrypted output uses stdout only. Sphinx has no clipboard, dedicated file-descriptor, plaintext temporary-file, or `exec` environment/stdin output mode. Terminal output requires a warning and confirmation; callers explicitly assume risk when piping or redirecting stdout.
-45. **Resolved:** use the documented BSD `sysexits` subset and stable version-1 single-object JSON envelopes. Success JSON goes to stdout, error JSON goes to stderr with stdout empty, stable machine error identifiers are distinct from human messages, and reveal JSON contains secrets only under `data.secrets`.
-46. **Resolved:** only Git may be invoked externally. Tailscale uses LocalAPI, while SOPS and native age are linked in-process; Sphinx never executes `tailscale`, `sops`, or age plugin binaries.
-47. **Resolved:** the sole release target is macOS on Apple Silicon (`darwin/arm64`). Intel macOS, Linux, and Windows are not release targets.
-48. **Resolved:** current config, lock, tomb, schema, and relic formats are deleted and unsupported; no data migration is provided.
-49. **Resolved:** old terminology does not remain as hidden CLI aliases. The redesign is the initial supported interface.
-50. **Resolved:** Sphinx journals exact pre/post-images before mutation and rolls back only affected paths when an uncommitted multi-artifact operation fails or crashes. It never runs Git reset/restore, touches HEAD/index, or discards unrelated changes; corrupt/missing journals require explicit caller-managed path-scoped Git recovery.
-
-## 15. Acceptance criteria
-
-The redesign is complete only when:
+The release satisfies these acceptance criteria:
 
 - `sphinx --help` exposes tomb, artifact, guardian, proclamation rotation, and decree management and no server/daemon command.
 - No process started by Sphinx listens for Sphinx requests.
@@ -1037,7 +807,7 @@ The redesign is complete only when:
 - The initial release performs no hybrid-suite rotation or mixed-suite reveal; future rotation requires a separately specified bridge release and all-artifact transaction.
 - Sphinx imposes no maximum size on artifacts, schemas, decrees, individual secrets, or Git repositories.
 - Every YAML parser rejects anchors, aliases, custom tags, duplicate keys, multiple documents, and merge keys.
-- Sphinx creates no audit/chronicle persistence, and black-box tests verify that interactive authoring fails without a controlling terminal or when secret/proclamation input is attempted through unsupported channels.
+- Sphinx creates no persistent event or audit store, and black-box tests verify that interactive authoring fails without a controlling terminal or when secret/proclamation input is attempted through unsupported channels.
 - Every handled failure maps to the documented stable BSD `sysexits` subset; JSON mode emits one version-1 object on stdout for success or stderr for failure, with stable error/warning identifiers and no secret-bearing error fields.
 - Decrypted values are emitted only on stdout; terminal output requires confirmation, stderr never contains secrets, and clipboard/file/temporary-file/explicit-FD/exec output modes do not exist.
 - Tests cover fixed Argon2id and proclamation-generation vectors, KDF-profile downgrade/resource-value rejection, crypto vectors, SOPS interoperability, tomb-reference and chamber fuzz cases, Git races, writable-worktree guards, crash injection after every transaction phase, exact-path rollback, third-party-edit refusal, corrupt-journal failure, prohibition of Git reset/stage/commit/push side effects, Tailscale resolution, policy precedence, YAML ambiguity, atomic writes, and macOS CLI black-box flows.
