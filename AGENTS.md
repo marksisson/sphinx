@@ -14,7 +14,7 @@ Read these before changing behavior:
 6. [`docs/adr/README.md`](docs/adr/README.md) — accepted design decisions.
 7. [`docs/security/THREAT_MODEL.md`](docs/security/THREAT_MODEL.md) — guarantees and residual risks.
 
-For format work, also read [`docs/SCHEMAS.md`](docs/SCHEMAS.md) and [`docs/examples/`](docs/examples/). For release work, read [`docs/release/PROCESS.md`](docs/release/PROCESS.md) and [`docs/release/SUPPORT_MATRIX.md`](docs/release/SUPPORT_MATRIX.md).
+For format work, also read [`docs/SCHEMAS.md`](docs/SCHEMAS.md) and [`docs/examples/`](docs/examples/). For release work, read [`docs/release/PROCESS.md`](docs/release/PROCESS.md) and [`docs/release/SUPPORT_MATRIX.md`](docs/release/SUPPORT_MATRIX.md). For the proposed in-process Git implementation, read [`docs/GIT_ENGINE.md`](docs/GIT_ENGINE.md).
 
 ## Non-negotiable architecture
 
