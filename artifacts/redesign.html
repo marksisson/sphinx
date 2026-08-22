@@ -295,9 +295,8 @@ Decree and seeker authorization (complete)</a></li>
 <li><a href="#phase-7--remove-superseded-implementation-and-documentation-complete" id="toc-phase-7--remove-superseded-implementation-and-documentation-complete">Phase
 7 — Remove superseded implementation and documentation
 (complete)</a></li>
-<li><a href="#phase-8--security-review-and-release-in-progress--clean-release-commit-pending" id="toc-phase-8--security-review-and-release-in-progress--clean-release-commit-pending">Phase
-8 — Security review and release (in progress — clean release commit
-pending)</a></li>
+<li><a href="#phase-8--security-review-and-release-complete" id="toc-phase-8--security-review-and-release-complete">Phase 8 —
+Security review and release (complete)</a></li>
 </ul></li>
 <li><a href="#14-questions-requiring-owner-decisions-grill-list" id="toc-14-questions-requiring-owner-decisions-grill-list">14. Questions
 requiring owner decisions (“grill list”)</a>
@@ -322,15 +321,17 @@ Operations</a></li>
 <main>
 <section id="sphinx-cli-redesign-specification-and-transformation-plan" class="level1">
 <h1>Sphinx CLI Redesign Specification and Transformation Plan</h1>
-<p><strong>Status:</strong> Owner decisions in §14 are resolved. Phases
-0–7 completed on 2026-08-22. Phase 8 threat review, process hardening,
-parser fuzzing, operational publications, and credential-free arm64
-release-candidate gates are complete. A valid Developer ID Application
-identity and usable Apple notarytool profile are available in the Nix
-development shell. The official release now awaits a reviewed clean
-commit; Phase 8 completes only after the fail-closed release procedure
-produces accepted signing, notarization, Gatekeeper, checksum, and SBOM
-evidence.</p>
+<p><strong>Status:</strong> Complete. Phases 0–8 completed on
+2026-08-22. The replacement CLI, initial formats, threat review, process
+hardening, parser fuzzing, operational publications, and release gates
+are complete. The <code>darwin/arm64</code> v0.1.0 artifact from source
+commit <code>6f60cbb6391025c5aec8bf262d2dcf85b1a5d6bf</code> has a
+hardened-runtime Developer ID signature and secure timestamp; Apple
+notarization submission
+<code>8d1637b5-2382-401f-8a5d-430fd936855e</code> was accepted; its
+ticket is stapled and validated on the disk image; Gatekeeper reports
+<code>Notarized Developer ID</code>; and checksums plus a CycloneDX SBOM
+are published under <code>artifacts/releases/v0.1.0/</code>.</p>
 <section id="1-purpose" class="level2">
 <h2>1. Purpose</h2>
 <p>Sphinx will be redesigned as a <strong>local command-line tool
@@ -2204,9 +2205,8 @@ systems.</li>
 <p><strong>Exit:</strong> only the new CLI-only design and initial
 formats remain; no compatibility or data-migration path exists.</p>
 </section>
-<section id="phase-8--security-review-and-release-in-progress--clean-release-commit-pending" class="level3">
-<h3>Phase 8 — Security review and release (in progress — clean release
-commit pending)</h3>
+<section id="phase-8--security-review-and-release-complete" class="level3">
+<h3>Phase 8 — Security review and release (complete)</h3>
 <ol type="1">
 <li>Perform a threat-model review focused on local bypass, passphrase
 entropy, pinned dependency integrity, Git lock integrity, recipient

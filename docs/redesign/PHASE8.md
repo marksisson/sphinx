@@ -1,6 +1,6 @@
 # Phase 8 implementation record
 
-**Status: implementation and credential-free release gates complete; Apple credentials verified; official release awaits a reviewed clean commit.**
+**Status: complete.**
 
 ## Threat review
 
@@ -53,4 +53,6 @@ The official build also exposed a Go VCS-stamping limitation in this linked work
 
 `scripts/verify-phase8.sh` runs static leakage/release checks, formatting and module tidiness, all tests, all-package race tests, all seven fuzz targets, vet, the hardened arm64 candidate build/sign/execute/SBOM/checksum gate, `nix flake check path:$PWD`, and diff hygiene.
 
-The credential-free candidate gate passes on macOS Apple Silicon. The Nix development shell exposes a valid Developer ID Application identity and a usable notarytool Keychain profile without revealing credential values. The release procedure intentionally refuses the current uncommitted multi-phase working tree: Phase 8 remains open only until the reviewed source is committed cleanly, `scripts/build-release-macos.sh VERSION` succeeds, and its accepted release evidence is retained.
+The credential-free candidate gate passes on macOS Apple Silicon. The official v0.1.0 procedure then passed from clean source commit `6f60cbb6391025c5aec8bf262d2dcf85b1a5d6bf`. The arm64 PIE has a hardened-runtime Developer ID signature and secure timestamp. Apple notarization submission `8d1637b5-2382-401f-8a5d-430fd936855e` returned `Accepted`; the ticket was stapled and validated on the signed disk image; and Gatekeeper accepted it as `Notarized Developer ID`. Binary, disk-image, and SBOM SHA-256 checksums plus the CycloneDX 1.5 SBOM are published under `artifacts/releases/v0.1.0/`.
+
+The release exercise found and corrected three packaging issues before completion: Nix-store dynamic linkage was incompatible with hardened-runtime Team IDs, Go automatic VCS stamping misidentified the linked worktree, and a raw command-line executable/ZIP cannot carry a stapled ticket for offline Gatekeeper verification. The final procedure uses system Apple libraries, explicit clean-commit provenance, and a signed/notarized/stapled disk image.

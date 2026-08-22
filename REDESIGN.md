@@ -1,6 +1,6 @@
 # Sphinx CLI Redesign Specification and Transformation Plan
 
-**Status:** Owner decisions in §14 are resolved. Phases 0–7 completed on 2026-08-22. Phase 8 threat review, process hardening, parser fuzzing, operational publications, and credential-free arm64 release-candidate gates are complete. A valid Developer ID Application identity and usable Apple notarytool profile are available in the Nix development shell. The official release now awaits a reviewed clean commit; Phase 8 completes only after the fail-closed release procedure produces accepted signing, notarization, Gatekeeper, checksum, and SBOM evidence.
+**Status:** Complete. Phases 0–8 completed on 2026-08-22. The replacement CLI, initial formats, threat review, process hardening, parser fuzzing, operational publications, and release gates are complete. The `darwin/arm64` v0.1.0 artifact from source commit `6f60cbb6391025c5aec8bf262d2dcf85b1a5d6bf` has a hardened-runtime Developer ID signature and secure timestamp; Apple notarization submission `8d1637b5-2382-401f-8a5d-430fd936855e` was accepted; its ticket is stapled and validated on the disk image; Gatekeeper reports `Notarized Developer ID`; and checksums plus a CycloneDX SBOM are published under `artifacts/releases/v0.1.0/`.
 
 ## 1. Purpose
 
@@ -915,7 +915,7 @@ Each phase ends with passing unit tests and updated documentation. Security beha
 
 **Exit:** only the new CLI-only design and initial formats remain; no compatibility or data-migration path exists.
 
-### Phase 8 — Security review and release (in progress — clean release commit pending)
+### Phase 8 — Security review and release (complete)
 
 1. Perform a threat-model review focused on local bypass, passphrase entropy, pinned dependency integrity, Git lock integrity, recipient rotation, plaintext leakage, and rollback.
 2. Fuzz tomb-reference, chamber-path, YAML, SOPS metadata, schema, and decree parsers, including anchors, aliases, tags, duplicate keys, multi-document input, and merge keys.

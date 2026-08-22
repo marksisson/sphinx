@@ -171,6 +171,8 @@ Before any command body executes, Sphinx sets and verifies the macOS soft and ha
 - [Proclamation rotation](docs/operations/PROCLAMATION_ROTATION.md)
 - [Rollback guidance](docs/operations/ROLLBACK.md)
 
+Published v0.1.0 checksums, SBOM, and notarization evidence are indexed in [`artifacts/releases/v0.1.0/RELEASE.md`](artifacts/releases/v0.1.0/RELEASE.md).
+
 The production release procedure in `scripts/build-release-macos.sh` requires a Developer ID Application identity and an Apple notarytool Keychain profile. It emits the notarized and stapled disk image, hardened-runtime signing evidence, Gatekeeper result, SHA-256 checksums, and CycloneDX SBOM. `scripts/verify-release-candidate.sh` performs a credential-free ad-hoc candidate build check but does not represent a distributable notarized release.
 
 See [docs/PRD.md](docs/PRD.md), [docs/TERMINOLOGY.md](docs/TERMINOLOGY.md), the [schema guide](docs/SCHEMAS.md), and the [frozen command matrix](docs/redesign/COMMAND_MATRIX.md).
